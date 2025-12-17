@@ -8,4 +8,3 @@ image:
 redis:
   usePassword: false
 replicaCount: 1
-domain: sales-dev.codefresh.io
