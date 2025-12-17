@@ -62,15 +62,15 @@ spec:
       - pause: {duration: 10}
       - setWeight: 80
       - pause: {}
-      # trafficRouting:
-      #   alb:
-      #     ingress: {{ template "fullname" . }}
-      #     servicePort: 80
       trafficRouting:
-        nginx:
-          # Either stableIngress or stableIngresses must be configured, but not both.
-          stableIngress: primary-{{ template "fullname" . }}-ingress
-          annotationPrefix: customingress.nginx.ingress.kubernetes.io # optional
-          additionalIngressAnnotations:   # optional
-            canary-by-header: X-Canary
-            canary-by-header-value: iwantsit
+        alb:
+          ingress: {{ template "fullname" . }}
+          servicePort: 80
+      # trafficRouting:
+      #   nginx:
+      #     # Either stableIngress or stableIngresses must be configured, but not both.
+      #     stableIngress: primary-{{ template "fullname" . }}-ingress
+      #     annotationPrefix: customingress.nginx.ingress.kubernetes.io # optional
+      #     additionalIngressAnnotations:   # optional
+      #       canary-by-header: X-Canary
+      #       canary-by-header-value: iwantsit
