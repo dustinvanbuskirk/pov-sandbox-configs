@@ -3,8 +3,8 @@ worker:
     repository: 336151728602.dkr.ecr.us-east-1.amazonaws.com/dvb-pov-sandbox-1-worker
     tag: 0.0.1
   redis:
-    host: infrastructure-dev-eva-redis-master
+    host: infrastructure-dev-eva-redis-master.eva-development.svc.cluster.local
   postgresql:
-    server: infrastructure-dev-eva-postgresql
+    server: infrastructure-dev-eva-postgresql.eva-development.svc.cluster.local
     postgresqlUser: postgres
     postgresqlPassword: postgres
