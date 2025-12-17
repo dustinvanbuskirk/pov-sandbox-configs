@@ -1,0 +1,9 @@
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: postgres
+
+redis:
+  enabled: true
+  auth: 
+    enabled: false

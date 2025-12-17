@@ -1,0 +1,4 @@
+worker:
+  image:
+    repository: codedev.jfrog.io/poc-demo-1-docker-local/worker
+    tag: 1.0.0

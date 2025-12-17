@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+ name: curl-{{ .Chart.Name }}
+spec:
+  metrics:
+    - name: curl-{{ .Chart.Name }}
+      provider:
+        job:
+          metadata:
+            labels:
+              app: {{ template "fullname" . }}
+              chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+              release: {{ .Release.Name  | quote }}
+              heritage: {{ .Release.Service  | quote }}
+              version: {{ .Values.image.tag | quote }}
+          spec:
+            backoffLimit: 1
+            template:
+              spec:
+                containers:
+                - name: curl-{{ .Chart.Name }}
+                  image: curlimages/curl:latest
+                  command:
+                    - /bin/sh
+                    - -c
+                    - |
+                      curl -I http://{{ template "fullname" . }}-preview.{{ .Release.Namespace }}.svc.cluster.local
+                      status_code=$(curl --write-out "%{http_code}\n" --silent --output /dev/null "http://{{ template "fullname" . }}-preview.{{ .Release.Namespace }}.svc.cluster.local");
+                      [ $status_code -eq 200 ]
+                restartPolicy: Never

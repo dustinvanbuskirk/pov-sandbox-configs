@@ -1,0 +1,4 @@
+result:
+  image:
+    repository: codedev.jfrog.io/poc-demo-1-docker-local/result
+    tag: 1.0.15

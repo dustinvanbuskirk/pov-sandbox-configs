@@ -1,0 +1,76 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ template "fullname" . }}
+  labels:
+    app: {{ template "fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+    release: {{ .Release.Name  | quote }}
+    heritage: {{ .Release.Service  | quote }}
+    version: {{ .Values.image.tag | quote }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: {{ template "fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "fullname" . }}
+        chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+        release: {{ .Release.Name  | quote }}
+        heritage: {{ .Release.Service  | quote }}
+        version: {{ .Values.image.tag | quote }}
+    spec:
+      containers:
+        - name: {{ template "fullname" . }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{default "Always" .Values.image.pullPolicy}}
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+          - name: POSTGRES_SERVER
+            value: {{ ( .Values.postgresql | default dict ).server | default "example-voting-app-postgresql" | quote }}
+          - name: POSTGRES_USERNAME
+            value: {{ (.Values.postgresql | default dict ).postgresUsername | default "postgres" | quote }}
+          - name: POSTGRES_PASSWORD
+            value: {{ (.Values.postgresql | default dict ).postgresqlPassword | default "postgres" | quote }}
+  strategy:
+    canary:
+      canaryService: {{ template "fullname" . }}-preview
+      stableService:  {{ template "fullname" . }}
+      analysis:
+        templates:
+        - templateName: curl-{{ .Chart.Name }}
+        args:
+        - name: service-name
+          value: {{ template "fullname" . }}-preview
+        - name: canary-hash
+          valueFrom:
+            podTemplateHashValue: Latest
+      steps:
+      - setWeight: 20
+      - analysis:
+          templates:
+          - templateName: curl-{{ .Chart.Name }}
+      - pause: {duration: 30}
+      - setWeight: 40
+      - pause: {duration: 10}
+      - setWeight: 60
+      - pause: {duration: 10}
+      - setWeight: 80
+      - pause: {}
+      # trafficRouting:
+      #   alb:
+      #     ingress: {{ template "fullname" . }}
+      #     servicePort: 80
+      trafficRouting:
+        nginx:
+          # Either stableIngress or stableIngresses must be configured, but not both.
+          stableIngress: primary-{{ template "fullname" . }}-ingress
+          annotationPrefix: customingress.nginx.ingress.kubernetes.io # optional
+          additionalIngressAnnotations:   # optional
+            canary-by-header: X-Canary
+            canary-by-header-value: iwantsit

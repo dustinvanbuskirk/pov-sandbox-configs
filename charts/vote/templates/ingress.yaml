@@ -1,0 +1,49 @@
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: {{ template "fullname" . }}
+#   annotations:
+#     alb.ingress.kubernetes.io/scheme: internet-facing
+#   labels:
+#     app: {{ template "fullname" . }}
+#     chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+#     release: {{ .Release.Name  | quote }}
+#     heritage: {{ .Release.Service  | quote }}
+#     version: {{ .Values.image.tag | quote }}
+# spec:
+#   ingressClassName: alb
+#   rules:
+#   - http:
+#       paths:
+#       - path: /*
+#         pathType: ImplementationSpecific
+#         backend:
+#           service:
+#             name: {{ template "fullname" . }}
+#             port: 
+#               name: http
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ template "fullname" . }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  labels:
+    app: {{ template "fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+    release: {{ .Release.Name  | quote }}
+    heritage: {{ .Release.Service  | quote }}
+    version: {{ .Values.image.tag | quote }}
+spec:
+  rules:
+  - host:  {{ template "fullname" . }}.{{ .Values.domain}}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            # Reference to a Service name, also specified in the Rollout spec.strategy.canary.stableService field
+            name: {{ template "fullname" . }}
+            port:
+              name: http
