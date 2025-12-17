@@ -1,4 +1,4 @@
 vote:
   image:
-    repository: codedev.jfrog.io/poc-demo-1-docker-local/vote
-    tag: 1.0.1
+    repository: 336151728602.dkr.ecr.us-east-1.amazonaws.com/dvb-pov-sandbox-1-vote
+    tag: 0.0.1
