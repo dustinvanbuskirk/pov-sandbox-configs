@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: d20-development
+
+resources:
+  - namespace.yaml
+  - ../../../kustomize/d20/base
+
+# Override image with specific repository and tag
+images:
+  - name: d20-dice-roller
+    newName: 336151728602.dkr.ecr.us-east-1.amazonaws.com/dvb-pov-sandbox-1-d20  # Replace with your image repository
+    newTag: 0.0.1  # Replace with specific version tag
+
+# Add environment-specific labels
+commonLabels:
+  environment: development
+
+# Add environment-specific annotations
+commonAnnotations:
+  environment: development
+
+# Customize replicas for production
+replicas:
+  - name: d20-dice-roller
+    count: 3
+
+# Patch for environment-specific configurations
+patches:
+  - path: deployment-patch.yaml
+  - path: ingress-patch.yaml

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ng-development
+  labels:
+    environment: development
+    team: engineering
+  annotations:
+    contact: "dvb@octopus.com"
