@@ -17,6 +17,14 @@ parameter "Worker Pool" {
     label = ""
 }
 
+parameter "Environments" {
+    display_settings = {
+        Octopus.ControlType = "Environments"
+    }
+    help_text = ""
+    label = ""
+}
+
 step "argo-rollouts-status" {
     name = "Argo - Rollouts Status (Start)"
     properties = {
@@ -2230,6 +2238,20 @@ step "argo-rollouts-status-80" {
                 label = "Timeout"
                 default_value = ""
             }
+        }
+    }
+}
+
+step "finalize-argo-rollout-100" {
+    name = "Finalize - Argo Rollout (100%)"
+
+    action {
+        action_type = "Octopus.Manual"
+        environments_variable = "#{Environments}"
+        properties = {
+            Octopus.Action.Manual.BlockConcurrentDeployments = "True"
+            Octopus.Action.Manual.Instructions = "Administrator Approval Required"
+            Octopus.Action.Manual.ResponsibleTeamIds = "global/octopus-administrators"
         }
     }
 }
