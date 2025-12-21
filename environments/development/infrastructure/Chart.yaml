@@ -2,16 +2,19 @@ apiVersion: v2
 description: Helm Chart for example-voting-app required infrastructure
 name: example-voting-app-infra
 keywords:
-  - codefresh
   - kubernetes
+  - argo
   - example-voting-app
   - infrastructure
+  - redis
+  - postgres
 version: 1.2.0
 sources:
-  - https://github.com/salesdemocf/configs/charts/example-voting-app-infra
+  - https://github.com/bitnami/charts/tree/main/bitnami/redis
+  - https://github.com/bitnami/charts/tree/main/bitnami/postgresql
 maintainers:
   - name: Dustin Van Buskirk
-    email: dustin@codefresh.io
+    email: dvb@octopus.com
 dependencies:
   - name: postgresql
     version: 18.1.14

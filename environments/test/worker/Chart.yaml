@@ -2,16 +2,16 @@ apiVersion: v2
 description: Helm Chart for Worker Service of Example Voting App
 name: worker
 keywords:
-  - codefresh
   - kubernetes
+  - argocd
   - example-voting-app
   - worker
 version: 1.2.0
 sources:
-  - https://github.com/salesdemocf/configs/worker
+  - https://github.com/dustinvanbuskirk/pov-sandbox-configs/charts/worker
 maintainers:
   - name: Dustin Van Buskirk
-    email: dustin@codefresh.io
+    email: dvb@octopus.com
 dependencies:
   - name: worker
     version: 1.2.0

@@ -2,17 +2,19 @@ apiVersion: v2
 description: Helm Chart for Result Service of Example Voting App
 name: result
 keywords:
-  - codefresh
   - kubernetes
+  - argocd
+  - argo-rollouts
+  - canary
   - example-voting-app
   - result
 version: 1.2.3
 appVersion: 1.0.20
 sources:
-  - https://github.com/salesdemocf/configs/result
+  - https://github.com/dustinvanbuskirk/pov-sandbox-configs/charts/result
 maintainers:
   - name: Dustin Van Buskirk
-    email: dustin@codefresh.io
+    email: dvb@octopus.com
 dependencies:
   - name: result
     version: 1.2.3
