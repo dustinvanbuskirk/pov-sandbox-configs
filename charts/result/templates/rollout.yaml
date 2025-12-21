@@ -51,11 +51,11 @@ spec:
           valueFrom:
             podTemplateHashValue: Latest
       steps:
+      - pause: {}
+      - setWeight: 20
       - analysis:
           templates:
           - templateName: curl-{{ .Chart.Name }}
-      - pause: {}
-      - setWeight: 20
       - pause: {}
       - setWeight: 40
       - pause: {}
