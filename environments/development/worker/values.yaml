@@ -1,7 +1,7 @@
 worker:
   image:
     repository: 336151728602.dkr.ecr.us-east-1.amazonaws.com/dvb-pov-sandbox-1-worker
-    tag: 0.0.6
+    tag: 0.0.8
   redis:
     host: infrastructure-dev-eva-redis-master.eva-development.svc.cluster.local:6379
   postgresql:
