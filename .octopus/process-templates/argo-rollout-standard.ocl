@@ -1,4 +1,4 @@
-name = "Argo Rollout [Standard]"
+name = "Argo Rollout [Canary]"
 description = "Performs Argo Rollout"
 
 parameter "Target Tags" {
@@ -17,6 +17,22 @@ parameter "Worker Pool" {
     label = ""
 }
 
+parameter "Rollout Name" {
+    display_settings = {
+        Octopus.ControlType = "SingleLineText"
+    }
+    help_text = ""
+    label = ""
+}
+
+parameter "Rollout NameSpace" {
+    display_settings = {
+        Octopus.ControlType = "SingleLineText"
+    }
+    help_text = ""
+    label = ""
+}
+
 step "argo-rollouts-status" {
     name = "Argo - Rollouts Status (Start)"
     properties = {
@@ -26,7 +42,8 @@ step "argo-rollouts-status" {
     action {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
-            Argo.Rollout.Namespace = "default"
+            Argo.Rollout.Name = "#{Rollout Name}"
+            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Supress info messages written to stderr
                 Write-Host "##octopus[stderr-progress]"
@@ -309,7 +326,8 @@ step "argo-rollouts-promote-20" {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
             Argo.Rollout.FullPromotion = "False"
-            Argo.Rollout.Namespace = "default"
+            Argo.Rollout.Name = "#{Rollout Name}"
+            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
@@ -527,7 +545,8 @@ step "argo-rollouts-status-20" {
     action {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
-            Argo.Rollout.Namespace = "default"
+            Argo.Rollout.Name = "#{Rollout Name}"
+            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Supress info messages written to stderr
                 Write-Host "##octopus[stderr-progress]"
@@ -810,7 +829,8 @@ step "argo-rollouts-promote-40" {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
             Argo.Rollout.FullPromotion = "False"
-            Argo.Rollout.Namespace = "default"
+            Argo.Rollout.Name = "#{Rollout Name}"
+            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
@@ -1028,7 +1048,8 @@ step "argo-rollouts-get-rollout-40" {
     action {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
-            Argo.Rollout.Namespace = "default"
+            Argo.Rollout.Name = "#{Rollout Name}"
+            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 function Save-OctopusVariable {
                     Param(
@@ -1242,7 +1263,8 @@ step "argo-rollouts-promote-60" {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
             Argo.Rollout.FullPromotion = "False"
-            Argo.Rollout.Namespace = "default"
+            Argo.Rollout.Name = "#{Rollout Name}"
+            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
@@ -1460,7 +1482,8 @@ step "argo-rollouts-status-60" {
     action {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
-            Argo.Rollout.Namespace = "default"
+            Argo.Rollout.Name = "#{Rollout Name}"
+            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Supress info messages written to stderr
                 Write-Host "##octopus[stderr-progress]"
@@ -1743,7 +1766,8 @@ step "argo-rollouts-promote-80" {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
             Argo.Rollout.FullPromotion = "False"
-            Argo.Rollout.Namespace = "default"
+            Argo.Rollout.Name = "#{Rollout Name}"
+            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
@@ -1961,7 +1985,8 @@ step "argo-rollouts-status-80" {
     action {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
-            Argo.Rollout.Namespace = "default"
+            Argo.Rollout.Name = "#{Rollout Name}"
+            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Supress info messages written to stderr
                 Write-Host "##octopus[stderr-progress]"
@@ -2244,7 +2269,8 @@ step "argo-rollouts-promote-100" {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
             Argo.Rollout.FullPromotion = "False"
-            Argo.Rollout.Namespace = "default"
+            Argo.Rollout.Name = "#{Rollout Name}"
+            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
@@ -2462,7 +2488,8 @@ step "argo-rollouts-status-100" {
     action {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
-            Argo.Rollout.Namespace = "default"
+            Argo.Rollout.Name = "#{Rollout Name}"
+            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Supress info messages written to stderr
                 Write-Host "##octopus[stderr-progress]"
