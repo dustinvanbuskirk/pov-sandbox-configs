@@ -1,0 +1,90 @@
+# Kubernetes Secrets and Sensitive Data
+*.secret.yaml
+*.secret.yml
+*-secret.yaml
+*-secret.yml
+secrets/
+*.key
+*.pem
+*.crt
+*.cert
+*.p12
+*.pfx
+
+# Environment-specific configurations
+*.local.yaml
+*.local.yml
+*-local.yaml
+*-local.yml
+*.dev.yaml
+*.dev.yml
+*.prod.yaml
+*.prod.yml
+
+# Helm
+*.tgz
+charts/*/charts/
+requirements.lock
+Chart.lock
+
+# Kustomize
+kustomization.yaml.bak
+
+# kubectl temporary files
+*.tmp
+*.swp
+*.swo
+*~
+
+# Terraform (if managing K8s resources via Terraform)
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate.d/
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.iml
+.DS_Store
+.project
+.classpath
+.settings/
+
+# Logs
+*.log
+
+# Backup files
+*.bak
+*.backup
+
+# Kubeconfig files (if storing locally)
+kubeconfig
+*.kubeconfig
+config
+
+# Temporary manifest files
+temp/
+tmp/
+
+# Values files with secrets (if using Helm)
+values-secrets.yaml
+values.secret.yaml
+*-secrets.yaml
+
+# ArgoCD temporary files
+.argocd-source-*.yaml
+
+# Sealed Secrets master key
+master.key
+master.yaml
+
+# External Secrets Operator
+*.externalsecret.yaml
+
+# SOPS encrypted files (if you want to ignore them)
+# Remove this if you want to track SOPS files
+# *.enc.yaml
+# *.enc.yml

@@ -1,9 +1,157 @@
-# Default values for result-app.
+# Default values for result.
 # This is a YAML-formatted file.
 # Declare name/value pairs to be passed into your templates.
-# name: value
+
 image:
   repository: codedev.jfrog.io/poc-demo-1-docker-local/result
   tag: 1.0.0
+  pullPolicy: Always
+
+postgresql:
+  server: example-voting-app-postgresql
+  postgresUsername: postgres
+  postgresqlPassword: postgres
+
 replicaCount: 1
-domain: sales-dev.codefresh.io
+
+# ============================================================================
+# Ingress Configuration
+# ============================================================================
+
+ingress:
+  enabled: true
+  className: alb
+  
+  # Domain for the application (used if externalDns.hostname not set)
+  domain: example.com
+  
+  # Custom hosts configuration (optional - leave empty for simple setup)
+  hosts: []
+  #  - host: result.example.com
+  #    paths:
+  #      - path: /
+  #        pathType: Prefix
+  #        servicePort: 80
+  
+  # TLS configuration (optional - only if not using ALB certificate)
+  tls: []
+  #  - secretName: result-tls
+  #    hosts:
+  #      - result.example.com
+  
+  # Additional custom annotations
+  annotations: {}
+  
+  # ============================================
+  # ALB Configuration (AWS Load Balancer Controller)
+  # ============================================
+  alb:
+    enabled: true
+    
+    # ALB Grouping - CRITICAL for cost savings
+    # All ingresses with the same group.name share one ALB
+    groupName: "cluster-shared-alb"
+    
+    # Group order - lower number = higher priority (1-1000)
+    # Use different orders for different apps to control routing priority
+    groupOrder: "20"
+    
+    # ALB Scheme
+    scheme: internet-facing  # or "internal" for private ALB
+    
+    # Target type
+    targetType: ip  # or "instance"
+    
+    # ACM Certificate ARN (use wildcard cert for all apps)
+    certificateArn: ""  # Set this to your ACM certificate ARN
+    # Example: "arn:aws:acm:us-east-1:123456789012:certificate/xxxxx"
+    
+    # Health check configuration
+    healthcheck:
+      path: /
+      protocol: HTTP
+      intervalSeconds: 15
+      timeoutSeconds: 5
+      successCodes: "200"
+    
+    # Optional: Custom ALB name (only set on ONE ingress in group)
+    loadBalancerName: ""
+    # Example: "my-cluster-alb"
+    
+    # Optional: Resource tags for ALB (only set on ONE ingress in group)
+    tags: ""
+    # Example: "Environment=Production,Team=Platform"
+    
+    # Optional: WAF ACL ARN (only set on ONE ingress in group)
+    wafAclArn: ""
+    # Example: "arn:aws:wafv2:us-east-1:123456789012:regional/webacl/xxx/xxx"
+  
+  # ============================================
+  # External DNS Configuration
+  # ============================================
+  externalDns:
+    enabled: false
+    
+    # Hostname for DNS record
+    # If empty, defaults to: <release-name>-<chart-name>.<ingress.domain>
+    hostname: ""
+    # Example: "result.example.com"
+    
+    # TTL for DNS record (seconds)
+    ttl: ""
+    # Example: "300" for 5 minutes
+
+# ============================================================================
+# Example Configurations
+# ============================================================================
+
+# Example 1: Simple setup with shared ALB and External DNS
+# ----------------------------------------------------------
+# ingress:
+#   enabled: true
+#   className: alb
+#   domain: example.com
+#   alb:
+#     enabled: true
+#     groupName: cluster-shared-alb
+#     groupOrder: "20"
+#     certificateArn: arn:aws:acm:us-east-1:123456789012:certificate/wildcard
+#   externalDns:
+#     enabled: true
+#     hostname: result.example.com
+
+# Example 2: Custom host configuration
+# ----------------------------------------------------------
+# ingress:
+#   enabled: true
+#   className: alb
+#   hosts:
+#     - host: result.example.com
+#       paths:
+#         - path: /
+#           pathType: Prefix
+#   alb:
+#     enabled: true
+#     groupName: cluster-shared-alb
+#     groupOrder: "20"
+#     certificateArn: arn:aws:acm:us-east-1:123456789012:certificate/wildcard
+#   externalDns:
+#     enabled: true
+#     hostname: result.example.com
+
+# Example 3: Internal ALB (private)
+# ----------------------------------------------------------
+# ingress:
+#   enabled: true
+#   alb:
+#     enabled: true
+#     groupName: internal-alb
+#     scheme: internal
+#   externalDns:
+#     enabled: true
+#     hostname: result.internal.example.com
+
+# Example 4: Disable ingress (use Service only)
+# ----------------------------------------------------------
+# ingress:
+#   enabled: false
