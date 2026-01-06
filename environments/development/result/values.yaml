@@ -8,7 +8,6 @@ result:
     postgresqlPassword: postgres
   ingress:
     alb:
-      loadBalancerName: k8s-sandbox1sharedalb-0d1d1e614c
       certificateArn: arn:aws:acm:us-east-1:336151728602:certificate/2844a5a3-cc60-48f5-8648-0907dee707c6
     externalDns:
       enabled: true
