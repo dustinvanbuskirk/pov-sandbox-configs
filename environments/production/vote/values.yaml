@@ -4,3 +4,15 @@ vote:
     tag: 0.0.0
   redis:
     host: infrastructure-dev-eva-redis-master.eva-development.svc.cluster.local:6379
+  ingress:
+    hosts:
+      - host: vote-prod.sandbox-1.sales-dev.codefresh.io
+        paths:
+          - path: /
+            pathType: Prefix
+            servicePort: 80
+    alb:
+      certificateArn: arn:aws:acm:us-east-1:336151728602:certificate/2844a5a3-cc60-48f5-8648-0907dee707c6
+    externalDns:
+      enabled: true
+      hostname: vote-prod.sandbox-1.sales-dev.codefresh.io

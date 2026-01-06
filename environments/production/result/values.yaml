@@ -6,3 +6,15 @@ result:
     server: infrastructure-dev-eva-postgresql.eva-development.svc.cluster.local:5432
     postgresqlUser: postgres
     postgresqlPassword: postgres
+  ingress:
+    hosts:
+      - host: result-prod.sandbox-1.sales-dev.codefresh.io
+        paths:
+          - path: /
+            pathType: Prefix
+            servicePort: 80
+    alb:
+      certificateArn: arn:aws:acm:us-east-1:336151728602:certificate/2844a5a3-cc60-48f5-8648-0907dee707c6
+    externalDns:
+      enabled: true
+      hostname: result-prod.sandbox-1.sales-dev.codefresh.io
