@@ -3,7 +3,7 @@ vote:
     repository: 336151728602.dkr.ecr.us-east-1.amazonaws.com/sandbox-1-vote
     tag: 0.0.0
   redis:
-    host: infrastructure-dev-eva-redis-master.eva-development.svc.cluster.local:6379
+    host: infrastructure-test-eva-redis-master.eva-test.svc.cluster.local:6379
   ingress:
     hosts:
       - host: vote-test.sandbox-1.sales-dev.codefresh.io
