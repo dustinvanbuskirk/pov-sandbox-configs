@@ -7,6 +7,16 @@ result:
     postgresqlUser: postgres
     postgresqlPassword: postgres
   ingress:
+    hosts:
+      - host: result.dev.sandbox-1.sales-dev.codefresh.io
+        backend:
+          service:
+            name: result-dev-eva-result
+            port:
+              name: http
+        path: /*
+        pathType: ImplementationSpecific
+status:
     alb:
       certificateArn: arn:aws:acm:us-east-1:336151728602:certificate/2844a5a3-cc60-48f5-8648-0907dee707c6
     externalDns:
