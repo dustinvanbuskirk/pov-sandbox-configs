@@ -5,7 +5,7 @@ namespace: d20-development
 
 resources:
   - namespace.yaml
-  - ../../../kustomize/d20/base
+  - ../../base
 
 # Override image with specific repository and tag
 images:
