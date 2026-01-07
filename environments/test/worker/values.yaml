@@ -1,7 +1,7 @@
 worker:
   image:
     repository: 336151728602.dkr.ecr.us-east-1.amazonaws.com/sandbox-1-worker
-    tag: 0.0.0
+    tag: 0.0.4
   redis:
     host: infrastructure-test-eva-redis-master.eva-test.svc.cluster.local:6379
   postgresql:
