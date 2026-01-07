@@ -41,6 +41,7 @@ step "increase-traffic-to-20" {
         properties = {
             Octopus.Action.Manual.BlockConcurrentDeployments = "False"
             Octopus.Action.Manual.Instructions = "Increases Traffic to 20%"
+            Octopus.Action.Manual.ResponsibleTeamIds = "global/octopus-managers"
         }
     }
 }
@@ -265,18 +266,6 @@ step "argo-rollouts-promote-20" {
     }
 }
 
-step "increase-traffic-to-40" {
-    name = "Increase Traffic to 40%"
-
-    action {
-        action_type = "Octopus.Manual"
-        properties = {
-            Octopus.Action.Manual.BlockConcurrentDeployments = "False"
-            Octopus.Action.Manual.Instructions = "Increases Traffic to 40%"
-        }
-    }
-}
-
 step "argo-rollouts-promote-40" {
     name = "Argo - Rollouts Promote (40%)"
     properties = {
@@ -497,18 +486,6 @@ step "argo-rollouts-promote-40" {
     }
 }
 
-step "increase-traffic-to-60" {
-    name = "Increase Traffic to 60%"
-
-    action {
-        action_type = "Octopus.Manual"
-        properties = {
-            Octopus.Action.Manual.BlockConcurrentDeployments = "False"
-            Octopus.Action.Manual.Instructions = "Increases Traffic to 60%"
-        }
-    }
-}
-
 step "argo-rollouts-promote-60" {
     name = "Argo - Rollouts Promote (60%)"
     properties = {
@@ -725,18 +702,6 @@ step "argo-rollouts-promote-60" {
                 label = "Full Promotion"
                 default_value = "False"
             }
-        }
-    }
-}
-
-step "increase-traffic-80" {
-    name = "Increase Traffic 80%"
-
-    action {
-        action_type = "Octopus.Manual"
-        properties = {
-            Octopus.Action.Manual.BlockConcurrentDeployments = "False"
-            Octopus.Action.Manual.Instructions = "Increases Traffic to 80%"
         }
     }
 }
@@ -969,6 +934,7 @@ step "increase-traffic-to-100" {
         properties = {
             Octopus.Action.Manual.BlockConcurrentDeployments = "False"
             Octopus.Action.Manual.Instructions = "Increases Traffic to 100%"
+            Octopus.Action.Manual.ResponsibleTeamIds = "global/octopus-managers"
         }
     }
 }
