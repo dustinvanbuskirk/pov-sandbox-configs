@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: d20-test
+  labels:
+    environment: test
+    team: engineering
+  annotations:
+    contact: "dvb@octopus.com"

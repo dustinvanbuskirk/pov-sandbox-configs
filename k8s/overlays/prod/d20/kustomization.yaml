@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: d20-development
+namespace: d20-production
 
 resources:
   - namespace.yaml
@@ -15,11 +15,11 @@ images:
 
 # Add environment-specific labels
 commonLabels:
-  environment: development
+  environment: production
 
 # Add environment-specific annotations
 commonAnnotations:
-  environment: development
+  environment: production
 
 # Customize replicas for production
 replicas:

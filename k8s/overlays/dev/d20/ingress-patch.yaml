@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: d20-dice-roller
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: d20-dev.sandbox-1.sales-dev.codefresh.io
+spec:
+  ingressClassName: alb
+  rules:
+  - host: d20-dev.sandbox-1.sales-dev.codefresh.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: d20-dice-roller
+            port:
+              number: 80
