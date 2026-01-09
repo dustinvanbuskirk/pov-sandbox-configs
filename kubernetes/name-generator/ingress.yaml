@@ -2,6 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: name-generator
+  namespace: "#{Namespace}"
   annotations:
     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:336151728602:certificate/2844a5a3-cc60-48f5-8648-0907dee707c6
     alb.ingress.kubernetes.io/group.name: cluster-shared-alb
@@ -15,11 +16,11 @@ metadata:
     alb.ingress.kubernetes.io/ssl-redirect: "443"
     alb.ingress.kubernetes.io/success-codes: "200"
     alb.ingress.kubernetes.io/target-type: ip
-    external-dns.alpha.kubernetes.io/hostname: name-generator.sandbox-1.sales-dev.codefresh.io
+    external-dns.alpha.kubernetes.io/hostname: "#{IngressDomain}"
 spec:
   ingressClassName: alb
   rules:
-  - host: name-generator.sandbox-1.sales-dev.codefresh.io
+  - host: "#{IngressDomain}"
     http:
       paths:
       - path: /
