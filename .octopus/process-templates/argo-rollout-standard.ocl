@@ -57,7 +57,7 @@ step "argo-rollouts-promote-20" {
         properties = {
             Argo.Rollout.FullPromotion = "False"
             Argo.Rollout.Name = "#{Rollout Name}"
-            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
+            Argo.Rollout.Namespace = "#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
@@ -277,7 +277,7 @@ step "argo-rollouts-promote-40" {
         properties = {
             Argo.Rollout.FullPromotion = "False"
             Argo.Rollout.Name = "#{Rollout Name}"
-            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
+            Argo.Rollout.Namespace = "#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
@@ -497,7 +497,7 @@ step "argo-rollouts-promote-60" {
         properties = {
             Argo.Rollout.FullPromotion = "False"
             Argo.Rollout.Name = "#{Rollout Name}"
-            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
+            Argo.Rollout.Namespace = "#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
@@ -717,7 +717,7 @@ step "argo-rollouts-promote-80" {
         properties = {
             Argo.Rollout.FullPromotion = "False"
             Argo.Rollout.Name = "#{Rollout Name}"
-            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
+            Argo.Rollout.Namespace = "#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
@@ -950,7 +950,7 @@ step "argo-rollouts-promote-100" {
         properties = {
             Argo.Rollout.FullPromotion = "False"
             Argo.Rollout.Name = "#{Rollout Name}"
-            Argo.Rollout.Namespace = "default#{Rollout NameSpace}"
+            Argo.Rollout.Namespace = "#{Rollout NameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
