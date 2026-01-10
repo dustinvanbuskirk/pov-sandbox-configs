@@ -17,7 +17,7 @@ parameter "Worker Pool" {
     label = ""
 }
 
-parameter "Rollout Name" {
+parameter "RolloutName" {
     display_settings = {
         Octopus.ControlType = "SingleLineText"
     }
@@ -25,7 +25,7 @@ parameter "Rollout Name" {
     label = ""
 }
 
-parameter "Rollout NameSpace" {
+parameter "RolloutNameSpace" {
     display_settings = {
         Octopus.ControlType = "SingleLineText"
     }
@@ -33,7 +33,7 @@ parameter "Rollout NameSpace" {
     label = ""
 }
 
-parameter "App Name" {
+parameter "AppName" {
     display_settings = {
         Octopus.ControlType = "SingleLineText"
     }
@@ -41,7 +41,7 @@ parameter "App Name" {
     label = ""
 }
 
-parameter "Ingress Name" {
+parameter "IngressName" {
     display_settings = {
         Octopus.ControlType = "SingleLineText"
     }
@@ -49,7 +49,7 @@ parameter "Ingress Name" {
     label = ""
 }
 
-parameter "Ingress Action Annotation" {
+parameter "IngressActionAnnotation" {
     display_settings = {
         Octopus.ControlType = "SingleLineText"
     }
@@ -80,8 +80,8 @@ step "argo-rollouts-promote-20" {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
             Argo.Rollout.FullPromotion = "False"
-            Argo.Rollout.Name = "#{Rollout Name}"
-            Argo.Rollout.Namespace = "#{Rollout NameSpace}"
+            Argo.Rollout.Name = "#{RolloutName}"
+            Argo.Rollout.Namespace = "#{RolloutNameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
@@ -302,20 +302,24 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                 
                 set -e
                 
-                # Configuration
-                APP_NAME="${OctopusParameters['APP NAME']}"
-                ROLLOUT_NAME="${OctopusParameters['ROLLOUT NAME']}"
-                INGRESS_NAME="${OctopusParameters['INGRESS NAME']}"
-                INGRESS_ACTION_ANNOTATION="${OctopusParameters['INGRESS ACTION ANNOTATION']}" # e.g., "alb.ingress.kubernetes.io/actions.result-dev-eva-result"
-                EXPECTED_CANARY_WEIGHT="20"
-                MAX_WAIT_TIME="${MAX_WAIT_TIME:-600}"  # 10 minutes default
-                CHECK_INTERVAL="${CHECK_INTERVAL:-5}"   # 5 seconds between checks
+                # Get parameters from Octopus Deploy Process Template
+                # Process Template parameters are accessed via OctopusParameters array
+                APP_NAME="${OctopusParameters['ApplicationName']}"
+                ROLLOUT_NAME="${OctopusParameters['RolloutName']}"
+                INGRESS_NAME="${OctopusParameters['IngressName']}"
+                INGRESS_ACTION_ANNOTATION="${OctopusParameters['IngressActionAnnotation']}"
+                EXPECTED_CANARY_WEIGHT="${OctopusParameters['ExpectedCanaryWeight']}"
+                NAMESPACE="${OctopusParameters['Namespace']}"
                 
-                # Argo connection details
+                # Optional parameters with defaults
+                MAX_WAIT_TIME="${OctopusParameters['MaxWaitTime']:-600}"  # 10 minutes default
+                CHECK_INTERVAL="${OctopusParameters['CheckInterval']:-5}"   # 5 seconds default
+                
+                # Argo connection details from Octopus variables (not parameters)
                 ARGO_SERVER=$(get_octopusvariable "argo-server")
                 ARGO_TOKEN=$(get_octopusvariable "argo-token")
-                ARGO_PLAINTEXT="${ARGO_PLAINTEXT:-true}"
-                ARGO_INSECURE="${ARGO_INSECURE:-true}"
+                ARGO_PLAINTEXT="${OctopusParameters['ArgoPlaintext']:-true}"
+                ARGO_INSECURE="${OctopusParameters['ArgoInsecure']:-true}"
                 
                 # Colors for output
                 RED='\033[0;31m'
@@ -372,23 +376,35 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                 
                 # Validate required parameters
                 validate_params() {
+                    local missing_params=()
+                    
                     if [[ -z "$APP_NAME" ]]; then
-                        log_error "APP_NAME is required"
-                        exit 1
+                        missing_params+=("ApplicationName")
                     fi
                     
                     if [[ -z "$ROLLOUT_NAME" ]]; then
-                        log_error "ROLLOUT_NAME is required"
-                        exit 1
+                        missing_params+=("RolloutName")
                     fi
                     
                     if [[ -z "$INGRESS_NAME" ]]; then
-                        log_error "INGRESS_NAME is required"
-                        exit 1
+                        missing_params+=("IngressName")
                     fi
                     
                     if [[ -z "$INGRESS_ACTION_ANNOTATION" ]]; then
-                        log_error "INGRESS_ACTION_ANNOTATION is required"
+                        missing_params+=("IngressActionAnnotation")
+                    fi
+                    
+                    if [[ -z "$EXPECTED_CANARY_WEIGHT" ]]; then
+                        missing_params+=("ExpectedCanaryWeight")
+                    fi
+                    
+                    if [[ ${#missing_params[@]} -gt 0 ]]; then
+                        log_error "Missing required Octopus Deploy Process Template parameters:"
+                        for param in "${missing_params[@]}"; do
+                            log_error "  - $param"
+                        done
+                        log_error ""
+                        log_error "Make sure these parameters are defined in your Process Template"
                         exit 1
                     fi
                 }
@@ -683,11 +699,15 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                 # Main coordination function
                 main() {
                     log_info "=== Argo Rollout Traffic Increment Coordinator ==="
-                    log_info "ArgoCD Application: $APP_NAME"
-                    log_info "Rollout: $ROLLOUT_NAME"
-                    log_info "Ingress: $INGRESS_NAME"
-                    log_info "Ingress Annotation: $INGRESS_ACTION_ANNOTATION"
-                    log_info "Expected Canary Weight: ${EXPECTED_CANARY_WEIGHT}%"
+                    log_info "Parameters from Octopus Deploy Process Template:"
+                    log_info "  ArgoCD Application: $APP_NAME"
+                    log_info "  Rollout: $ROLLOUT_NAME"
+                    log_info "  Ingress: $INGRESS_NAME"
+                    log_info "  Namespace: $NAMESPACE"
+                    log_info "  Ingress Annotation: $INGRESS_ACTION_ANNOTATION"
+                    log_info "  Expected Canary Weight: ${EXPECTED_CANARY_WEIGHT}%"
+                    log_info "  Max Wait Time: ${MAX_WAIT_TIME}s"
+                    log_info "  Check Interval: ${CHECK_INTERVAL}s"
                     
                     # Install ArgoCD CLI
                     install_argocd_cli
@@ -765,8 +785,8 @@ step "argo-rollouts-promote-40" {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
             Argo.Rollout.FullPromotion = "False"
-            Argo.Rollout.Name = "#{Rollout Name}"
-            Argo.Rollout.Namespace = "#{Rollout NameSpace}"
+            Argo.Rollout.Name = "#{RolloutName}"
+            Argo.Rollout.Namespace = "#{RolloutNameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
@@ -985,8 +1005,8 @@ step "argo-rollouts-promote-60" {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
             Argo.Rollout.FullPromotion = "False"
-            Argo.Rollout.Name = "#{Rollout Name}"
-            Argo.Rollout.Namespace = "#{Rollout NameSpace}"
+            Argo.Rollout.Name = "#{RolloutName}"
+            Argo.Rollout.Namespace = "#{RolloutNameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
@@ -1205,8 +1225,8 @@ step "argo-rollouts-promote-80" {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
             Argo.Rollout.FullPromotion = "False"
-            Argo.Rollout.Name = "#{Rollout Name}"
-            Argo.Rollout.Namespace = "#{Rollout NameSpace}"
+            Argo.Rollout.Name = "#{RolloutName}"
+            Argo.Rollout.Namespace = "#{RolloutNameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
@@ -1438,8 +1458,8 @@ step "argo-rollouts-promote-100" {
         action_type = "Octopus.KubernetesRunScript"
         properties = {
             Argo.Rollout.FullPromotion = "False"
-            Argo.Rollout.Name = "#{Rollout Name}"
-            Argo.Rollout.Namespace = "#{Rollout NameSpace}"
+            Argo.Rollout.Name = "#{RolloutName}"
+            Argo.Rollout.Namespace = "#{RolloutNameSpace}"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Installs the Argo Rollouts plugin
                 function Install-Plugin
