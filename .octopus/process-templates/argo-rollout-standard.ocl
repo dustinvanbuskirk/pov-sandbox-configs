@@ -303,10 +303,10 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                 set -e
                 
                 # Configuration
-                APP_NAME="${APP NAME}"
-                ROLLOUT_NAME="${ROLLOUT NAME}"
-                INGRESS_NAME="${INGRESS NAME}"
-                INGRESS_ACTION_ANNOTATION="${INGRESS ACTION ANNOTATION}"  # e.g., "alb.ingress.kubernetes.io/actions.result-dev-eva-result"
+                APP_NAME=$(get_octopusvariable "APP NAME")
+                ROLLOUT_NAME=$(get_octopusvariable "ROLLOUT NAME")
+                INGRESS_NAME=$(get_octopusvariable "INGRESS NAME")
+                INGRESS_ACTION_ANNOTATION=$(get_octopusvariable "INGRESS ACTION ANNOTATION") # e.g., "alb.ingress.kubernetes.io/actions.result-dev-eva-result"
                 EXPECTED_CANARY_WEIGHT="20"
                 MAX_WAIT_TIME="${MAX_WAIT_TIME:-600}"  # 10 minutes default
                 CHECK_INTERVAL="${CHECK_INTERVAL:-5}"   # 5 seconds between checks
