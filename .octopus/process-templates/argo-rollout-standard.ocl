@@ -303,10 +303,10 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                 set -e
                 
                 # Configuration
-                APP_NAME="${OctopusParameters['APP NAME']"
-                ROLLOUT_NAME="${OctopusParameters['ROLLOUT NAME']"
-                INGRESS_NAME="${OctopusParameters['INGRESS NAME']"
-                INGRESS_ACTION_ANNOTATION="${OctopusParameters['INGRESS ACTION ANNOTATION']" # e.g., "alb.ingress.kubernetes.io/actions.result-dev-eva-result"
+                APP_NAME="${OctopusParameters['APP NAME']}"
+                ROLLOUT_NAME="${OctopusParameters['ROLLOUT NAME']}"
+                INGRESS_NAME="${OctopusParameters['INGRESS NAME']}"
+                INGRESS_ACTION_ANNOTATION="${OctopusParameters['INGRESS ACTION ANNOTATION']}" # e.g., "alb.ingress.kubernetes.io/actions.result-dev-eva-result"
                 EXPECTED_CANARY_WEIGHT="20"
                 MAX_WAIT_TIME="${MAX_WAIT_TIME:-600}"  # 10 minutes default
                 CHECK_INTERVAL="${CHECK_INTERVAL:-5}"   # 5 seconds between checks
