@@ -33,7 +33,7 @@ parameter "RolloutNameSpace" {
     label = ""
 }
 
-parameter "AppName" {
+parameter "ApplicationName" {
     display_settings = {
         Octopus.ControlType = "SingleLineText"
     }
@@ -308,18 +308,18 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                 ROLLOUT_NAME="#{RolloutName}"
                 INGRESS_NAME="#{IngressName}"
                 INGRESS_ACTION_ANNOTATION="#{IngressActionAnnotation}"
-                EXPECTED_CANARY_WEIGHT="#{ExpectedCanaryWeight}"
-                NAMESPACE="#{Namespace}"
+                EXPECTED_CANARY_WEIGHT="20"
+                NAMESPACE="#{RolloutNameSpace}"
                 
                 # Optional parameters with defaults
-                MAX_WAIT_TIME="#{MaxWaitTime:-600}"  # 10 minutes default
-                CHECK_INTERVAL="#{CheckInterval:-5}"   # 5 seconds default
+                MAX_WAIT_TIME="600"  # 10 minutes default
+                CHECK_INTERVAL="5"   # 5 seconds default
                 
                 # Argo connection details from Octopus variables (not parameters)
                 ARGO_SERVER="#{argo-server}"
                 ARGO_TOKEN="#{argo-token}"
-                ARGO_PLAINTEXT="#{ArgoPlaintext:-true}"
-                ARGO_INSECURE="#{ArgoInsecure:-true}"
+                ARGO_PLAINTEXT="true"
+                ARGO_INSECURE="true"
                 
                 # Colors for output
                 RED='\033[0;31m'
