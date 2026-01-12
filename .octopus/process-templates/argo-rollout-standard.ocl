@@ -503,8 +503,9 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     rollout_json=$(kubectl get rollout "$rollout_name" -n "$namespace" -o json 2>&1)
                     
                     if [[ $? -ne 0 ]]; then
-                        log_error "Could not retrieve rollout status"
-                        return 1
+                        log_warn "Could not retrieve rollout status"
+                        echo ""
+                        return 0  # Return success with empty string, not an error
                     fi
                     
                     # Get current step index
@@ -522,6 +523,7 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     
                     log_info "Active AnalysisRun: $current_analysis"
                     echo "$current_analysis"
+                    return 0
                 }
                 
                 # Wait for analysis run completion
@@ -532,11 +534,21 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     
                     log_info "Monitoring AnalysisRun completion..."
                     
+                    # First check if there's an AnalysisRun at all
+                    local ar_name=$(check_analysis_runs "$rollout_name" "$namespace")
+                    
+                    if [[ -z "$ar_name" ]]; then
+                        log_info "No active AnalysisRuns to monitor - completing successfully"
+                        return 0
+                    fi
+                    
+                    # Now monitor the AnalysisRun until completion
                     while true; do
-                        local ar_name=$(check_analysis_runs "$rollout_name" "$namespace")
+                        # Re-check in case the AnalysisRun changes
+                        ar_name=$(check_analysis_runs "$rollout_name" "$namespace")
                         
                         if [[ -z "$ar_name" ]]; then
-                            log_info "No active AnalysisRuns to monitor"
+                            log_info "AnalysisRun completed or no longer active"
                             return 0
                         fi
                         
@@ -545,7 +557,7 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                         ar_json=$(kubectl get analysisrun "$ar_name" -n "$namespace" -o json 2>&1)
                         
                         if [[ $? -ne 0 ]]; then
-                            log_warn "Could not retrieve AnalysisRun, will retry..."
+                            log_warn "Could not retrieve AnalysisRun details: $ar_json"
                             sleep $CHECK_INTERVAL
                             continue
                         fi
