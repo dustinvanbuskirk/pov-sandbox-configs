@@ -309,7 +309,6 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                 INGRESS_ACTION_ANNOTATION="#{IngressActionAnnotation}"
                 EXPECTED_CANARY_WEIGHT="20"
                 NAMESPACE="#{RolloutNameSpace}"
-                
                 # Optional parameters with defaults
                 MAX_WAIT_TIME="600"
                 CHECK_INTERVAL="5"
@@ -376,8 +375,12 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     
                     # Call ArgoCD API to get application resource tree with live state
                     local app_response
-                    app_response=$(curl -s -k -H "Authorization: Bearer ${ARGO_TOKEN}" "${api_url}" 2>&1)
+                    app_response=$(curl -s -k -H "Authorization: Bearer ${ARGO_TOKEN}" "${api_url}")
                     local curl_status=$?
+                    
+                    # Log the raw output for debugging
+                    log_debug "curl exit code: $curl_status"
+                    log_debug "Response length: ${#app_response} bytes"
                     
                     if [[ $curl_status -ne 0 ]]; then
                         log_error "curl request failed with exit code: $curl_status"
