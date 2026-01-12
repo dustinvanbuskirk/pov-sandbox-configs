@@ -375,7 +375,7 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     
                     # Extract canary weight from status
                     local canary_weight
-                    canary_weight=$(echo "$rollout_json" | jq -r '.status.canary.weights.canary // empty' 2>&1)
+                    canary_weight=$(echo "$rollout_json" | jq -r '.status.canary.weights.canary.weight // empty' 2>&1)
                     local jq_status=$?
                     
                     if [[ $jq_status -ne 0 ]]; then
@@ -386,8 +386,8 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     
                     if [[ -z "$canary_weight" ]]; then
                         log_error "Could not extract canary weight from Rollout status"
-                        log_debug "Rollout status:"
-                        echo "$rollout_json" | jq '.status' | head -20
+                        log_debug "Canary weights object:"
+                        echo "$rollout_json" | jq '.status.canary.weights'
                         return 1
                     fi
                     
