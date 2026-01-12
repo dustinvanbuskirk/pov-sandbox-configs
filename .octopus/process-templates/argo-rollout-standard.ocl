@@ -304,22 +304,22 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                 
                 # Get parameters from Octopus Deploy Process Template
                 # Process Template parameters are accessed via OctopusParameters array
-                APP_NAME="${OctopusParameters['ApplicationName']}"
-                ROLLOUT_NAME="${OctopusParameters['RolloutName']}"
-                INGRESS_NAME="${OctopusParameters['IngressName']}"
-                INGRESS_ACTION_ANNOTATION="${OctopusParameters['IngressActionAnnotation']}"
-                EXPECTED_CANARY_WEIGHT="${OctopusParameters['ExpectedCanaryWeight']}"
-                NAMESPACE="${OctopusParameters['Namespace']}"
+                APP_NAME="#{ApplicationName}"
+                ROLLOUT_NAME="#{RolloutName}"
+                INGRESS_NAME="#{IngressName}"
+                INGRESS_ACTION_ANNOTATION="#{IngressActionAnnotation}"
+                EXPECTED_CANARY_WEIGHT="#{ExpectedCanaryWeight}"
+                NAMESPACE="#{Namespace}"
                 
                 # Optional parameters with defaults
-                MAX_WAIT_TIME="${OctopusParameters['MaxWaitTime']:-600}"  # 10 minutes default
-                CHECK_INTERVAL="${OctopusParameters['CheckInterval']:-5}"   # 5 seconds default
+                MAX_WAIT_TIME="#{MaxWaitTime:-600}"  # 10 minutes default
+                CHECK_INTERVAL="#{CheckInterval:-5}"   # 5 seconds default
                 
                 # Argo connection details from Octopus variables (not parameters)
-                ARGO_SERVER=$(get_octopusvariable "argo-server")
-                ARGO_TOKEN=$(get_octopusvariable "argo-token")
-                ARGO_PLAINTEXT="${OctopusParameters['ArgoPlaintext']:-true}"
-                ARGO_INSECURE="${OctopusParameters['ArgoInsecure']:-true}"
+                ARGO_SERVER="#{argo-server}"
+                ARGO_TOKEN="#{argo-token}"
+                ARGO_PLAINTEXT="#{ArgoPlaintext:-true}"
+                ARGO_INSECURE="#{ArgoInsecure:-true}"
                 
                 # Colors for output
                 RED='\033[0;31m'
