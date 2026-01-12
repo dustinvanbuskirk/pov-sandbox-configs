@@ -430,8 +430,6 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     local ingress_name=$2
                     local flags=$(build_argocd_flags)
                     
-                    log_info "Fetching ingress live state: $ingress_name"
-                    
                     argocd app get "$app_name" \
                         --resource networking.k8s.io:Ingress:"$ingress_name" \
                         --show-params false \
@@ -448,7 +446,8 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     local live_state=$(get_ingress_live_state "$app_name" "$ingress_name")
                     
                     if [[ -z "$live_state" ]] || [[ "$live_state" == "null" ]]; then
-                        log_error "Could not retrieve ingress live state"
+                        echo "ERROR: Could not retrieve ingress live state" >&2
+                        echo ""
                         return 1
                     fi
                     
@@ -456,16 +455,19 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     local annotation=$(echo "$live_state" | jq -r --arg key "$annotation_key" '.liveState.metadata.annotations[$key] // empty')
                     
                     if [[ -z "$annotation" ]]; then
-                        log_error "Could not find annotation: $annotation_key"
+                        echo "ERROR: Could not find annotation: $annotation_key" >&2
+                        echo ""
                         return 1
                     fi
                     
                     # Parse the JSON annotation and extract canary weight (first target group)
                     # The annotation value is a JSON string that needs to be parsed first
-                    local canary_weight=$(echo "$annotation" | jq -r 'fromjson | .ForwardConfig.TargetGroups[0].Weight // empty')
+                    local canary_weight=$(echo "$annotation" | jq -r 'fromjson | .ForwardConfig.TargetGroups[0].Weight // empty' 2>&1)
                     
-                    if [[ -z "$canary_weight" ]]; then
-                        log_error "Could not extract canary weight from annotation"
+                    if [[ -z "$canary_weight" ]] || [[ "$canary_weight" == *"parse error"* ]]; then
+                        echo "ERROR: Could not extract canary weight from annotation" >&2
+                        echo "Annotation value: $annotation" >&2
+                        echo ""
                         return 1
                     fi
                     
@@ -480,7 +482,24 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     log_info "Waiting for traffic weight to reach: ${expected_weight}%"
                     
                     while true; do
-                        local current_weight=$(get_current_traffic_weight "$APP_NAME" "$INGRESS_NAME" "$INGRESS_ACTION_ANNOTATION")
+                        local current_weight
+                        current_weight=$(get_current_traffic_weight "$APP_NAME" "$INGRESS_NAME" "$INGRESS_ACTION_ANNOTATION" 2>&1)
+                        local weight_status=$?
+                        
+                        # Check if we got an error
+                        if [[ $weight_status -ne 0 ]] || [[ -z "$current_weight" ]]; then
+                            log_error "Failed to retrieve current traffic weight"
+                            
+                            local elapsed=$(($(date +%s) - start_time))
+                            if [[ $elapsed -gt $MAX_WAIT_TIME ]]; then
+                                log_error "Timeout waiting for traffic weight update"
+                                return 1
+                            fi
+                            
+                            log_info "Retrying in ${CHECK_INTERVAL}s..."
+                            sleep $CHECK_INTERVAL
+                            continue
+                        fi
                         
                         if [[ "$current_weight" == "$expected_weight" ]]; then
                             log_info "✓ Traffic weight successfully updated to ${expected_weight}%"
