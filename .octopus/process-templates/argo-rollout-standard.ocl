@@ -330,7 +330,7 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                 }
                 
                 log_debug() {
-                    echo -e "${YELLOW}[DEBUG]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
+                    echo -e "${YELLOW}[DEBUG]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1" >&2
                 }
                 
                 validate_params() {
