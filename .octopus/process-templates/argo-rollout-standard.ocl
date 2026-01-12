@@ -340,6 +340,10 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     echo -e "${RED}[ERROR]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
                 }
                 
+                log_debug() {
+                    echo -e "${YELLOW}[DEBUG]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
+                }
+                
                 # Install ArgoCD CLI
                 install_argocd_cli() {
                     if command -v argocd &> /dev/null; then
@@ -443,34 +447,54 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     local ingress_name=$2
                     local annotation_key=$3
                     
+                    log_debug "Fetching ingress live state for: $ingress_name"
                     local live_state=$(get_ingress_live_state "$app_name" "$ingress_name")
                     
                     if [[ -z "$live_state" ]] || [[ "$live_state" == "null" ]]; then
-                        echo "ERROR: Could not retrieve ingress live state" >&2
+                        log_error "Could not retrieve ingress live state"
                         echo ""
                         return 1
                     fi
                     
+                    log_debug "Successfully retrieved ingress live state"
+                    
+                    # Debug: Show all annotations
+                    log_debug "Available annotations:"
+                    echo "$live_state" | jq -r '.liveState.metadata.annotations | keys[]' 2>/dev/null | while read -r key; do
+                        log_debug "  - $key"
+                    done
+                    
                     # Extract the annotation value using the full annotation key
+                    log_debug "Looking for annotation key: $annotation_key"
                     local annotation=$(echo "$live_state" | jq -r --arg key "$annotation_key" '.liveState.metadata.annotations[$key] // empty')
                     
                     if [[ -z "$annotation" ]]; then
-                        echo "ERROR: Could not find annotation: $annotation_key" >&2
+                        log_error "Could not find annotation: $annotation_key"
+                        log_debug "Full annotations object:"
+                        echo "$live_state" | jq '.liveState.metadata.annotations'
                         echo ""
                         return 1
                     fi
+                    
+                    log_debug "Found annotation value (first 100 chars): ${annotation:0:100}"
                     
                     # Parse the JSON annotation and extract canary weight (first target group)
                     # The annotation value is a JSON string that needs to be parsed first
+                    log_debug "Attempting to parse annotation JSON..."
                     local canary_weight=$(echo "$annotation" | jq -r 'fromjson | .ForwardConfig.TargetGroups[0].Weight // empty' 2>&1)
+                    local jq_status=$?
                     
-                    if [[ -z "$canary_weight" ]] || [[ "$canary_weight" == *"parse error"* ]]; then
-                        echo "ERROR: Could not extract canary weight from annotation" >&2
-                        echo "Annotation value: $annotation" >&2
+                    if [[ $jq_status -ne 0 ]] || [[ -z "$canary_weight" ]] || [[ "$canary_weight" == *"parse error"* ]]; then
+                        log_error "Could not extract canary weight from annotation"
+                        log_debug "jq exit status: $jq_status"
+                        log_debug "jq output: $canary_weight"
+                        log_debug "Raw annotation value:"
+                        echo "$annotation"
                         echo ""
                         return 1
                     fi
                     
+                    log_debug "Successfully extracted canary weight: $canary_weight"
                     echo "$canary_weight"
                 }
                 
