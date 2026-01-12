@@ -461,7 +461,8 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     fi
                     
                     # Parse the JSON annotation and extract canary weight (first target group)
-                    local canary_weight=$(echo "$annotation" | jq -r '.ForwardConfig.TargetGroups[0].Weight // empty')
+                    # The annotation value is a JSON string that needs to be parsed first
+                    local canary_weight=$(echo "$annotation" | jq -r 'fromjson | .ForwardConfig.TargetGroups[0].Weight // empty')
                     
                     if [[ -z "$canary_weight" ]]; then
                         log_error "Could not extract canary weight from annotation"
