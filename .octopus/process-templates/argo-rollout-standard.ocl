@@ -303,19 +303,13 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                 set -e
                 
                 # Get parameters from Octopus Deploy Process Template
-                APP_NAME="#{ApplicationName}"
                 ROLLOUT_NAME="#{RolloutName}"
-                INGRESS_NAME="#{IngressName}"
-                INGRESS_ACTION_ANNOTATION="#{IngressActionAnnotation}"
                 EXPECTED_CANARY_WEIGHT="20"
                 NAMESPACE="#{RolloutNameSpace}"
+                
                 # Optional parameters with defaults
                 MAX_WAIT_TIME="600"
                 CHECK_INTERVAL="5"
-                
-                # Argo connection details
-                ARGO_SERVER="#{argo-server}"
-                ARGO_TOKEN="#{argo-token}"
                 
                 # Colors for output
                 RED='\033[0;31m'
@@ -342,11 +336,8 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                 validate_params() {
                     local missing_params=()
                     
-                    if [[ -z "$APP_NAME" ]]; then missing_params+=("ApplicationName"); fi
-                    if [[ -z "$ROLLOUT_NAME" ]]; then missing_params+=("RolloutName"); fi
-                    if [[ -z "$INGRESS_NAME" ]]; then missing_params+=("IngressName"); fi
-                    if [[ -z "$INGRESS_ACTION_ANNOTATION" ]]; then missing_params+=("IngressActionAnnotation"); fi
-                    if [[ -z "$NAMESPACE" ]]; then missing_params+=("RolloutNameSpace"); fi
+                    if [[ -z "$ROLLOUT_NAME" ]]; then missing_params+=("Result Rollout Name"); fi
+                    if [[ -z "$NAMESPACE" ]]; then missing_params+=("Environment Rollout NameSpace"); fi
                     
                     if [[ ${#missing_params[@]} -gt 0 ]]; then
                         log_error "Missing required Octopus Deploy Process Template parameters:"
@@ -357,144 +348,46 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     fi
                 }
                 
-                # Get current traffic weight using ArgoCD REST API
-                get_current_traffic_weight() {
-                    local app_name=$1
-                    local ingress_name=$2
-                    local annotation_key=$3
-                    local namespace=$4
+                # Get current canary weight from Rollout using kubectl
+                get_current_canary_weight() {
+                    local rollout_name=$1
+                    local namespace=$2
                     
-                    log_debug "Querying ArgoCD API for application: $app_name"
-                    log_debug "Looking for ingress: $ingress_name in namespace: $namespace"
-                    log_debug "Annotation key: $annotation_key"
+                    log_debug "Querying Rollout: $rollout_name in namespace: $namespace"
                     
-                    # Build API URL for resource tree - this includes live state
-                    local api_url="http://${ARGO_SERVER}/api/v1/applications/${app_name}/resource-tree"
+                    # Get the Rollout resource
+                    local rollout_json
+                    rollout_json=$(kubectl get rollout "$rollout_name" -n "$namespace" -o json 2>&1)
+                    local kubectl_status=$?
                     
-                    log_debug "API URL: $api_url"
-                    
-                    # Call ArgoCD API to get application resource tree with live state
-                    local app_response
-                    app_response=$(curl -s -k -H "Authorization: Bearer ${ARGO_TOKEN}" "${api_url}")
-                    local curl_status=$?
-                    
-                    # Log the raw output for debugging
-                    log_debug "curl exit code: $curl_status"
-                    log_debug "Response length: ${#app_response} bytes"
-                    
-                    if [[ $curl_status -ne 0 ]]; then
-                        log_error "curl request failed with exit code: $curl_status"
-                        log_error "Output: ${app_response:0:500}"
+                    if [[ $kubectl_status -ne 0 ]]; then
+                        log_error "kubectl get rollout failed with exit code: $kubectl_status"
+                        log_error "Output: ${rollout_json:0:500}"
                         return 1
                     fi
                     
-                    if [[ -z "$app_response" ]]; then
-                        log_error "API returned empty response"
+                    if [[ -z "$rollout_json" ]]; then
+                        log_error "kubectl returned empty output"
                         return 1
                     fi
                     
-                    log_debug "Retrieved API response (${#app_response} bytes)"
+                    log_debug "Retrieved Rollout JSON (${#rollout_json} bytes)"
                     
-                    # Check if response is valid JSON
-                    if ! echo "$app_response" | jq -e '.' > /dev/null 2>&1; then
-                        log_error "API response is not valid JSON"
-                        log_error "Response preview: ${app_response:0:500}"
-                        return 1
-                    fi
-                    
-                    # Check for API errors
-                    local api_error=$(echo "$app_response" | jq -r '.error // empty')
-                    if [[ -n "$api_error" ]]; then
-                        log_error "API returned error: $api_error"
-                        local api_message=$(echo "$app_response" | jq -r '.message // empty')
-                        if [[ -n "$api_message" ]]; then
-                            log_error "Error message: $api_message"
-                        fi
-                        return 1
-                    fi
-                    
-                    # Find the Ingress resource in the resource tree
-                    log_debug "Searching for Ingress resource in resource tree..."
-                    local ingress_resource
-                    ingress_resource=$(echo "$app_response" | jq --arg name "$ingress_name" --arg ns "$namespace" '
-                        .nodes[] | 
-                        select(.kind=="Ingress" and .name==$name and .namespace==$ns)
-                    ')
-                    
-                    if [[ -z "$ingress_resource" ]]; then
-                        log_error "Could not find Ingress resource: $ingress_name in namespace: $namespace"
-                        log_debug "Available resources:"
-                        echo "$app_response" | jq -r '.nodes[] | "\(.kind)/\(.name)/\(.namespace)"' 2>/dev/null || log_debug "Could not list resources"
-                        return 1
-                    fi
-                    
-                    log_debug "Found Ingress resource in tree"
-                    
-                    # Get the live state - in resource tree, the resource itself contains the manifest
-                    local live_state
-                    live_state=$(echo "$ingress_resource" | jq -r '.info[] | select(.name=="Resource") | .value' 2>/dev/null)
-                    
-                    if [[ -z "$live_state" ]]; then
-                        log_error "Could not find live state in resource tree node"
-                        log_debug "Resource node structure:"
-                        echo "$ingress_resource" | jq '.'
-                        return 1
-                    fi
-                    
-                    log_debug "Found live state data (${#live_state} bytes)"
-                    
-                    log_debug "Found live state data (${#live_state} bytes)"
-                    
-                    # Parse the live state JSON (it's a JSON string that needs parsing)
-                    local parsed_state
-                    parsed_state=$(echo "$live_state" | jq -r 'fromjson' 2>/dev/null)
-                    
-                    if [[ -z "$parsed_state" ]]; then
-                        log_error "Failed to parse live state JSON"
-                        log_debug "Live state value: ${live_state:0:500}"
-                        return 1
-                    fi
-                    
-                    log_debug "Successfully parsed live state"
-                    
-                    # List all annotations for debugging
-                    log_debug "Available annotations in ingress:"
-                    echo "$parsed_state" | jq -r '.metadata.annotations | keys[]?' 2>/dev/null | while IFS= read -r key; do
-                        log_debug "  - $key"
-                    done
-                    
-                    # Extract the annotation value
-                    log_debug "Looking for annotation: $annotation_key"
-                    local annotation
-                    annotation=$(echo "$parsed_state" | jq -r --arg key "$annotation_key" '.metadata.annotations[$key] // empty')
-                    
-                    if [[ -z "$annotation" ]]; then
-                        log_error "Annotation not found: $annotation_key"
-                        log_debug "All annotations:"
-                        echo "$parsed_state" | jq '.metadata.annotations'
-                        return 1
-                    fi
-                    
-                    log_debug "Found annotation (length: ${#annotation} chars)"
-                    log_debug "Annotation preview: ${annotation:0:150}..."
-                    
-                    # Parse the annotation JSON to extract weight
-                    log_debug "Parsing annotation JSON to extract weight..."
+                    # Extract canary weight from status
                     local canary_weight
-                    canary_weight=$(echo "$annotation" | jq -r 'fromjson | .ForwardConfig.TargetGroups[0].Weight // empty' 2>&1)
+                    canary_weight=$(echo "$rollout_json" | jq -r '.status.canary.weights.canary // empty' 2>&1)
                     local jq_status=$?
                     
                     if [[ $jq_status -ne 0 ]]; then
-                        log_error "Failed to parse annotation JSON (jq exit code: $jq_status)"
+                        log_error "Failed to parse Rollout JSON (jq exit code: $jq_status)"
                         log_error "jq output: $canary_weight"
-                        log_debug "Full annotation value: $annotation"
                         return 1
                     fi
                     
                     if [[ -z "$canary_weight" ]]; then
-                        log_error "Could not extract weight from annotation"
-                        log_debug "Parsed structure:"
-                        echo "$annotation" | jq 'fromjson'
+                        log_error "Could not extract canary weight from Rollout status"
+                        log_debug "Rollout status:"
+                        echo "$rollout_json" | jq '.status' | head -20
                         return 1
                     fi
                     
@@ -507,19 +400,19 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     local expected_weight=$1
                     local start_time=$(date +%s)
                     
-                    log_info "Waiting for traffic weight to reach: ${expected_weight}%"
+                    log_info "Waiting for canary weight to reach: ${expected_weight}%"
                     
                     while true; do
                         local current_weight
-                        current_weight=$(get_current_traffic_weight "$APP_NAME" "$INGRESS_NAME" "$INGRESS_ACTION_ANNOTATION" "$NAMESPACE")
+                        current_weight=$(get_current_canary_weight "$ROLLOUT_NAME" "$NAMESPACE")
                         local weight_status=$?
                         
                         if [[ $weight_status -ne 0 ]]; then
-                            log_error "Failed to retrieve current traffic weight (exit code: $weight_status)"
+                            log_error "Failed to retrieve current canary weight (exit code: $weight_status)"
                             
                             local elapsed=$(($(date +%s) - start_time))
                             if [[ $elapsed -gt $MAX_WAIT_TIME ]]; then
-                                log_error "Timeout waiting for traffic weight update"
+                                log_error "Timeout waiting for canary weight update"
                                 return 1
                             fi
                             
@@ -533,7 +426,7 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                             
                             local elapsed=$(($(date +%s) - start_time))
                             if [[ $elapsed -gt $MAX_WAIT_TIME ]]; then
-                                log_error "Timeout waiting for traffic weight update"
+                                log_error "Timeout waiting for canary weight update"
                                 return 1
                             fi
                             
@@ -543,13 +436,13 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                         fi
                         
                         if [[ "$current_weight" == "$expected_weight" ]]; then
-                            log_info "✓ Traffic weight successfully updated to ${expected_weight}%"
+                            log_info "✓ Canary weight successfully updated to ${expected_weight}%"
                             return 0
                         fi
                         
                         local elapsed=$(($(date +%s) - start_time))
                         if [[ $elapsed -gt $MAX_WAIT_TIME ]]; then
-                            log_error "Timeout waiting for traffic weight update. Current: ${current_weight}%, Expected: ${expected_weight}%"
+                            log_error "Timeout waiting for canary weight update. Current: ${current_weight}%, Expected: ${expected_weight}%"
                             return 1
                         fi
                         
@@ -558,30 +451,191 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     done
                 }
                 
+                # Check rollout health
+                check_rollout_health() {
+                    local rollout_name=$1
+                    local namespace=$2
+                    
+                    log_info "Checking rollout health..."
+                    
+                    local rollout_json
+                    rollout_json=$(kubectl get rollout "$rollout_name" -n "$namespace" -o json 2>&1)
+                    local kubectl_status=$?
+                    
+                    if [[ $kubectl_status -ne 0 ]]; then
+                        log_error "Failed to get rollout status"
+                        return 1
+                    fi
+                    
+                    local phase=$(echo "$rollout_json" | jq -r '.status.phase // "Unknown"')
+                    local health_status=$(echo "$rollout_json" | jq -r '.status.health.status // "Unknown"')
+                    local message=$(echo "$rollout_json" | jq -r '.status.message // "N/A"')
+                    
+                    log_info "Rollout Phase: $phase"
+                    log_info "Health Status: $health_status"
+                    log_info "Message: $message"
+                    
+                    # Check for unhealthy conditions
+                    if [[ "$phase" == "Degraded" ]] || [[ "$health_status" == "Degraded" ]]; then
+                        log_error "Rollout is in degraded state"
+                        echo "$rollout_json" | jq '.status'
+                        return 1
+                    fi
+                    
+                    # Check for abort condition
+                    local abort_condition=$(echo "$rollout_json" | jq -r '.status.abort // false')
+                    if [[ "$abort_condition" == "true" ]]; then
+                        log_error "Rollout has been aborted"
+                        return 1
+                    fi
+                    
+                    return 0
+                }
+                
+                # Check for active AnalysisRuns
+                check_analysis_runs() {
+                    local rollout_name=$1
+                    local namespace=$2
+                    
+                    log_info "Checking for active AnalysisRuns..."
+                    
+                    local rollout_json
+                    rollout_json=$(kubectl get rollout "$rollout_name" -n "$namespace" -o json 2>&1)
+                    
+                    if [[ $? -ne 0 ]]; then
+                        log_error "Could not retrieve rollout status"
+                        return 1
+                    fi
+                    
+                    # Get current step index
+                    local current_step=$(echo "$rollout_json" | jq -r '.status.currentStepIndex // 0')
+                    log_info "Current rollout step: $current_step"
+                    
+                    # Check for current step analysis run
+                    local current_analysis=$(echo "$rollout_json" | jq -r '.status.canary.currentStepAnalysisRun // empty')
+                    
+                    if [[ -z "$current_analysis" ]]; then
+                        log_info "No active AnalysisRun for current step"
+                        echo ""
+                        return 0
+                    fi
+                    
+                    log_info "Active AnalysisRun: $current_analysis"
+                    echo "$current_analysis"
+                }
+                
+                # Wait for analysis run completion
+                wait_for_analysis_completion() {
+                    local rollout_name=$1
+                    local namespace=$2
+                    local start_time=$(date +%s)
+                    
+                    log_info "Monitoring AnalysisRun completion..."
+                    
+                    while true; do
+                        local ar_name=$(check_analysis_runs "$rollout_name" "$namespace")
+                        
+                        if [[ -z "$ar_name" ]]; then
+                            log_info "No active AnalysisRuns to monitor"
+                            return 0
+                        fi
+                        
+                        # Get the AnalysisRun
+                        local ar_json
+                        ar_json=$(kubectl get analysisrun "$ar_name" -n "$namespace" -o json 2>&1)
+                        
+                        if [[ $? -ne 0 ]]; then
+                            log_warn "Could not retrieve AnalysisRun, will retry..."
+                            sleep $CHECK_INTERVAL
+                            continue
+                        fi
+                        
+                        local ar_phase=$(echo "$ar_json" | jq -r '.status.phase // "Unknown"')
+                        local ar_message=$(echo "$ar_json" | jq -r '.status.message // "N/A"')
+                        
+                        case "$ar_phase" in
+                            "Successful")
+                                log_info "✓ AnalysisRun $ar_name completed successfully"
+                                return 0
+                                ;;
+                            "Failed"|"Error")
+                                log_error "✗ AnalysisRun $ar_name failed!"
+                                log_error "Phase: $ar_phase"
+                                log_error "Message: $ar_message"
+                                
+                                # Get metric results for detailed failure info
+                                log_error "Metric Results:"
+                                echo "$ar_json" | jq '.status.metricResults'
+                                
+                                return 1
+                                ;;
+                            "Running"|"Pending"|"Inconclusive")
+                                log_info "AnalysisRun $ar_name status: $ar_phase - $ar_message"
+                                ;;
+                            *)
+                                log_warn "Unknown AnalysisRun phase: $ar_phase"
+                                ;;
+                        esac
+                        
+                        local elapsed=$(($(date +%s) - start_time))
+                        if [[ $elapsed -gt $MAX_WAIT_TIME ]]; then
+                            log_error "Timeout waiting for AnalysisRun completion"
+                            log_error "Final AnalysisRun state:"
+                            echo "$ar_json" | jq '.status'
+                            return 1
+                        fi
+                        
+                        sleep $CHECK_INTERVAL
+                    done
+                }
+                
                 main() {
                     log_info "=== Argo Rollout Traffic Increment Coordinator ==="
                     log_info "Parameters from Octopus Deploy Process Template:"
-                    log_info "  ArgoCD Application: $APP_NAME"
                     log_info "  Rollout: $ROLLOUT_NAME"
-                    log_info "  Ingress: $INGRESS_NAME"
                     log_info "  Namespace: $NAMESPACE"
-                    log_info "  Ingress Annotation: $INGRESS_ACTION_ANNOTATION"
                     log_info "  Expected Canary Weight: ${EXPECTED_CANARY_WEIGHT}%"
                     log_info "  Max Wait Time: ${MAX_WAIT_TIME}s"
                     log_info "  Check Interval: ${CHECK_INTERVAL}s"
-                    log_info "  ArgoCD Server: $ARGO_SERVER"
                     
                     validate_params
                     
+                    # Verify kubectl access
                     log_info ""
-                    log_info "Step 1: Verifying traffic weight update in ingress..."
+                    log_info "Verifying kubectl access..."
+                    if ! kubectl version --client &> /dev/null; then
+                        log_error "kubectl is not available"
+                        exit 1
+                    fi
+                    log_info "✓ kubectl is available"
+                    
+                    # Step 1: Wait for canary weight to match expected value
+                    log_info ""
+                    log_info "Step 1: Verifying canary weight update..."
                     if ! wait_for_traffic_update "$EXPECTED_CANARY_WEIGHT"; then
-                        log_error "Failed to verify traffic weight update"
+                        log_error "Failed to verify canary weight update"
+                        exit 1
+                    fi
+                    
+                    # Step 2: Check rollout health
+                    log_info ""
+                    log_info "Step 2: Checking rollout health..."
+                    if ! check_rollout_health "$ROLLOUT_NAME" "$NAMESPACE"; then
+                        log_error "Rollout health check failed"
+                        exit 1
+                    fi
+                    
+                    # Step 3: Wait for any analysis runs to complete
+                    log_info ""
+                    log_info "Step 3: Waiting for analysis tests to complete..."
+                    if ! wait_for_analysis_completion "$ROLLOUT_NAME" "$NAMESPACE"; then
+                        log_error "Analysis tests failed"
                         exit 1
                     fi
                     
                     log_info ""
-                    log_info "=== Traffic weight verification completed successfully! ==="
+                    log_info "=== All checks passed successfully! ==="
+                    log_info "Canary increment to ${EXPECTED_CANARY_WEIGHT}% is verified and tests completed"
                 }
                 
                 main
