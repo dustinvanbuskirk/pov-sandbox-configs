@@ -317,8 +317,6 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                 # Argo connection details
                 ARGO_SERVER="#{argo-server}"
                 ARGO_TOKEN="#{argo-token}"
-                ARGO_PLAINTEXT="true"
-                ARGO_INSECURE="true"
                 
                 # Colors for output
                 RED='\033[0;31m'
@@ -342,38 +340,6 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     echo -e "${YELLOW}[DEBUG]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
                 }
                 
-                install_argocd_cli() {
-                    if command -v argocd &> /dev/null; then
-                        log_info "ArgoCD CLI already installed: $(argocd version --client --short 2>/dev/null || echo 'unknown version')"
-                        return 0
-                    fi
-                    
-                    log_info "Installing ArgoCD CLI..."
-                    
-                    curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64 && \
-                    install -m 555 argocd-linux-amd64 /usr/local/bin/argocd && \
-                    rm argocd-linux-amd64
-                    
-                    if command -v argocd &> /dev/null; then
-                        log_info "✓ ArgoCD CLI installed successfully: $(argocd version --client --short)"
-                    else
-                        log_error "Failed to install ArgoCD CLI"
-                        exit 1
-                    fi
-                }
-                
-                setup_argocd_env() {
-                    if [[ -z "$ARGO_SERVER" ]] || [[ -z "$ARGO_TOKEN" ]]; then
-                        log_error "ARGO_SERVER and ARGO_TOKEN are required"
-                        exit 1
-                    fi
-                    
-                    export ARGOCD_SERVER="$ARGO_SERVER"
-                    export ARGOCD_AUTH_TOKEN="$ARGO_TOKEN"
-                    
-                    log_info "Connected to ArgoCD server: $ARGO_SERVER"
-                }
-                
                 validate_params() {
                     local missing_params=()
                     
@@ -381,7 +347,7 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     if [[ -z "$ROLLOUT_NAME" ]]; then missing_params+=("RolloutName"); fi
                     if [[ -z "$INGRESS_NAME" ]]; then missing_params+=("IngressName"); fi
                     if [[ -z "$INGRESS_ACTION_ANNOTATION" ]]; then missing_params+=("IngressActionAnnotation"); fi
-                    if [[ -z "$EXPECTED_CANARY_WEIGHT" ]]; then missing_params+=("ExpectedCanaryWeight"); fi
+                    if [[ -z "$NAMESPACE" ]]; then missing_params+=("RolloutNameSpace"); fi
                     
                     if [[ ${#missing_params[@]} -gt 0 ]]; then
                         log_error "Missing required Octopus Deploy Process Template parameters:"
@@ -392,106 +358,117 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     fi
                 }
                 
-                build_argocd_flags() {
-                    local flags=""
-                    
-                    if [[ "$ARGO_PLAINTEXT" == "true" ]]; then
-                        flags="$flags --plaintext"
-                    fi
-                    
-                    if [[ "$ARGO_INSECURE" == "true" ]]; then
-                        flags="$flags --insecure"
-                    fi
-                    
-                    echo "$flags"
-                }
-                
-                # IMPROVED: Get current traffic weight from ingress
+                # Get current traffic weight using ArgoCD REST API
                 get_current_traffic_weight() {
                     local app_name=$1
                     local ingress_name=$2
                     local annotation_key=$3
                     local namespace=$4
-                    local flags=$(build_argocd_flags)
                     
-                    log_debug "Querying ArgoCD for ingress: $ingress_name in namespace: $namespace"
+                    log_debug "Querying ArgoCD API for application: $app_name"
+                    log_debug "Looking for ingress: $ingress_name in namespace: $namespace"
+                    log_debug "Annotation key: $annotation_key"
                     
-                    # Try different resource query formats
-                    local resource_queries=(
-                        "networking.k8s.io:Ingress:$namespace/$ingress_name"
-                        "networking.k8s.io:Ingress:$ingress_name"
-                        "Ingress:$namespace/$ingress_name"
-                        "Ingress:$ingress_name"
-                    )
+                    # Build API URL for resource tree - this includes live state
+                    local api_url="http://${ARGO_SERVER}/api/v1/applications/${app_name}/resource-tree"
                     
-                    local live_state=""
-                    local successful_query=""
+                    log_debug "API URL: $api_url"
                     
-                    for resource_query in "${resource_queries[@]}"; do
-                        log_debug "Trying resource query format: $resource_query"
-                        
-                        live_state=$(argocd app get "$app_name" \
-                            --resource "$resource_query" \
-                            --show-params false \
-                            $flags \
-                            -o json 2>&1)
-                        
-                        local cmd_status=$?
-                        
-                        if [[ $cmd_status -eq 0 ]] && echo "$live_state" | jq -e '.liveState' > /dev/null 2>&1; then
-                            successful_query="$resource_query"
-                            log_debug "✓ Successfully retrieved ingress using format: $resource_query"
-                            break
-                        else
-                            log_debug "✗ Failed with format: $resource_query"
-                            if [[ $cmd_status -ne 0 ]]; then
-                                log_debug "Error output: ${live_state:0:200}"
-                            fi
-                        fi
-                    done
+                    # Call ArgoCD API to get application resource tree with live state
+                    local app_response
+                    app_response=$(curl -s -k -H "Authorization: Bearer ${ARGO_TOKEN}" "${api_url}" 2>&1)
+                    local curl_status=$?
                     
-                    if [[ -z "$successful_query" ]]; then
-                        log_error "Failed to retrieve ingress with any resource query format"
-                        log_error "Last attempt output (first 500 chars): ${live_state:0:500}"
-                        
-                        # Try listing all resources in the app for debugging
-                        log_debug "Listing all resources in application for debugging..."
-                        argocd app get "$app_name" $flags 2>&1 | head -30
-                        
+                    if [[ $curl_status -ne 0 ]]; then
+                        log_error "curl request failed with exit code: $curl_status"
+                        log_error "Output: ${app_response:0:500}"
                         return 1
                     fi
+                    
+                    if [[ -z "$app_response" ]]; then
+                        log_error "API returned empty response"
+                        return 1
+                    fi
+                    
+                    log_debug "Retrieved API response (${#app_response} bytes)"
+                    
+                    # Check if response is valid JSON
+                    if ! echo "$app_response" | jq -e '.' > /dev/null 2>&1; then
+                        log_error "API response is not valid JSON"
+                        log_error "Response preview: ${app_response:0:500}"
+                        return 1
+                    fi
+                    
+                    # Check for API errors
+                    local api_error=$(echo "$app_response" | jq -r '.error // empty')
+                    if [[ -n "$api_error" ]]; then
+                        log_error "API returned error: $api_error"
+                        local api_message=$(echo "$app_response" | jq -r '.message // empty')
+                        if [[ -n "$api_message" ]]; then
+                            log_error "Error message: $api_message"
+                        fi
+                        return 1
+                    fi
+                    
+                    # Find the Ingress resource in the resource tree
+                    log_debug "Searching for Ingress resource in resource tree..."
+                    local ingress_resource
+                    ingress_resource=$(echo "$app_response" | jq --arg name "$ingress_name" --arg ns "$namespace" '
+                        .nodes[] | 
+                        select(.kind=="Ingress" and .name==$name and .namespace==$ns)
+                    ')
+                    
+                    if [[ -z "$ingress_resource" ]]; then
+                        log_error "Could not find Ingress resource: $ingress_name in namespace: $namespace"
+                        log_debug "Available resources:"
+                        echo "$app_response" | jq -r '.nodes[] | "\(.kind)/\(.name)/\(.namespace)"' 2>/dev/null || log_debug "Could not list resources"
+                        return 1
+                    fi
+                    
+                    log_debug "Found Ingress resource in tree"
+                    
+                    # Get the live state - in resource tree, the resource itself contains the manifest
+                    local live_state
+                    live_state=$(echo "$ingress_resource" | jq -r '.info[] | select(.name=="Resource") | .value' 2>/dev/null)
                     
                     if [[ -z "$live_state" ]]; then
-                        log_error "argocd command returned empty output"
+                        log_error "Could not find live state in resource tree node"
+                        log_debug "Resource node structure:"
+                        echo "$ingress_resource" | jq '.'
                         return 1
                     fi
                     
-                    log_debug "Retrieved JSON response (${#live_state} bytes)"
+                    log_debug "Found live state data (${#live_state} bytes)"
                     
-                    # Verify liveState exists
-                    if ! echo "$live_state" | jq -e '.liveState' > /dev/null 2>&1; then
-                        log_error "Response does not contain valid liveState field"
-                        log_debug "Response preview (first 500 chars): ${live_state:0:500}"
+                    log_debug "Found live state data (${#live_state} bytes)"
+                    
+                    # Parse the live state JSON (it's a JSON string that needs parsing)
+                    local parsed_state
+                    parsed_state=$(echo "$live_state" | jq -r 'fromjson' 2>/dev/null)
+                    
+                    if [[ -z "$parsed_state" ]]; then
+                        log_error "Failed to parse live state JSON"
+                        log_debug "Live state value: ${live_state:0:500}"
                         return 1
                     fi
                     
-                    log_debug "Found liveState in response"
+                    log_debug "Successfully parsed live state"
                     
                     # List all annotations for debugging
                     log_debug "Available annotations in ingress:"
-                    echo "$live_state" | jq -r '.liveState.metadata.annotations | keys[]?' 2>/dev/null | while IFS= read -r key; do
+                    echo "$parsed_state" | jq -r '.metadata.annotations | keys[]?' 2>/dev/null | while IFS= read -r key; do
                         log_debug "  - $key"
                     done
                     
                     # Extract the annotation value
                     log_debug "Looking for annotation: $annotation_key"
                     local annotation
-                    annotation=$(echo "$live_state" | jq -r --arg key "$annotation_key" '.liveState.metadata.annotations[$key] // empty' 2>&1)
+                    annotation=$(echo "$parsed_state" | jq -r --arg key "$annotation_key" '.metadata.annotations[$key] // empty')
                     
                     if [[ -z "$annotation" ]]; then
                         log_error "Annotation not found: $annotation_key"
                         log_debug "All annotations:"
-                        echo "$live_state" | jq '.liveState.metadata.annotations'
+                        echo "$parsed_state" | jq '.metadata.annotations'
                         return 1
                     fi
                     
@@ -578,9 +555,6 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     done
                 }
                 
-                # Rest of the script remains the same...
-                # (Including get_rollout_live_state, check_analysis_runs, etc.)
-                
                 main() {
                     log_info "=== Argo Rollout Traffic Increment Coordinator ==="
                     log_info "Parameters from Octopus Deploy Process Template:"
@@ -592,16 +566,9 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     log_info "  Expected Canary Weight: ${EXPECTED_CANARY_WEIGHT}%"
                     log_info "  Max Wait Time: ${MAX_WAIT_TIME}s"
                     log_info "  Check Interval: ${CHECK_INTERVAL}s"
+                    log_info "  ArgoCD Server: $ARGO_SERVER"
                     
-                    install_argocd_cli
-                    setup_argocd_env
                     validate_params
-                    
-                    local flags=$(build_argocd_flags)
-                    
-                    log_info ""
-                    log_info "Checking ArgoCD application status..."
-                    argocd app get "$APP_NAME" $flags 2>/dev/null || log_warn "Could not display app status"
                     
                     log_info ""
                     log_info "Step 1: Verifying traffic weight update in ingress..."
