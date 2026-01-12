@@ -428,109 +428,95 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     echo "$flags"
                 }
                 
-                # Get ingress live state from ArgoCD
-                get_ingress_live_state() {
-                    local app_name=$1
-                    local ingress_name=$2
-                    local flags=$(build_argocd_flags)
-                    
-                    log_debug "Calling: argocd app get $app_name --resource networking.k8s.io:Ingress:$ingress_name"
-                    
-                    local result
-                    result=$(argocd app get "$app_name" \
-                        --resource networking.k8s.io:Ingress:"$ingress_name" \
-                        --show-params false \
-                        $flags \
-                        -o json 2>&1)
-                    
-                    local status=$?
-                    
-                    if [[ $status -ne 0 ]]; then
-                        log_error "argocd command failed with status $status"
-                        log_error "Error output: $result"
-                        echo ""
-                        return 1
-                    fi
-                    
-                    if [[ -z "$result" ]]; then
-                        log_error "argocd command returned empty result"
-                        echo ""
-                        return 1
-                    fi
-                    
-                    log_debug "Successfully retrieved JSON from ArgoCD (${#result} bytes)"
-                    echo "$result"
-                }
-                
                 # Get current traffic weight from ingress live state
                 get_current_traffic_weight() {
                     local app_name=$1
                     local ingress_name=$2
                     local annotation_key=$3
+                    local flags=$(build_argocd_flags)
                     
-                    log_debug "Fetching ingress live state for: $ingress_name"
+                    log_debug "Querying ArgoCD for ingress: $ingress_name"
+                    log_debug "Command: argocd app get $app_name --resource networking.k8s.io:Ingress:$ingress_name $flags -o json"
+                    
+                    # Get the ingress resource directly
                     local live_state
-                    live_state=$(get_ingress_live_state "$app_name" "$ingress_name")
-                    local state_status=$?
+                    live_state=$(argocd app get "$app_name" \
+                        --resource networking.k8s.io:Ingress:"$ingress_name" \
+                        --show-params false \
+                        $flags \
+                        -o json 2>&1)
                     
-                    if [[ $state_status -ne 0 ]] || [[ -z "$live_state" ]] || [[ "$live_state" == "null" ]]; then
-                        log_error "Could not retrieve ingress live state"
-                        echo ""
+                    local cmd_status=$?
+                    
+                    if [[ $cmd_status -ne 0 ]]; then
+                        log_error "argocd command failed with exit code: $cmd_status"
+                        log_error "Output: $live_state"
                         return 1
                     fi
                     
-                    log_debug "Successfully retrieved ingress live state"
-                    
-                    # Debug: Check if liveState exists
-                    local has_live_state=$(echo "$live_state" | jq 'has("liveState")')
-                    log_debug "Has liveState field: $has_live_state"
-                    
-                    if [[ "$has_live_state" != "true" ]]; then
-                        log_error "Response does not contain liveState field"
-                        log_debug "Response structure:"
-                        echo "$live_state" | jq 'keys'
-                        echo ""
+                    if [[ -z "$live_state" ]]; then
+                        log_error "argocd command returned empty output"
                         return 1
                     fi
                     
-                    # Debug: Show all annotations
-                    log_debug "Available annotations:"
-                    echo "$live_state" | jq -r '.liveState.metadata.annotations | keys[]' 2>/dev/null | while read -r key; do
+                    log_debug "Retrieved JSON response (${#live_state} bytes)"
+                    
+                    # Check if response is valid JSON and has liveState
+                    if ! echo "$live_state" | jq -e '.liveState' > /dev/null 2>&1; then
+                        log_error "Response does not contain valid liveState field"
+                        log_debug "Response preview (first 500 chars):"
+                        log_debug "${live_state:0:500}"
+                        return 1
+                    fi
+                    
+                    log_debug "Found liveState in response"
+                    
+                    # List all available annotations for debugging
+                    log_debug "Available annotations in ingress:"
+                    local annotation_keys=$(echo "$live_state" | jq -r '.liveState.metadata.annotations | keys[]' 2>/dev/null)
+                    while IFS= read -r key; do
                         log_debug "  - $key"
-                    done
+                    done <<< "$annotation_keys"
                     
-                    # Extract the annotation value using the full annotation key
-                    log_debug "Looking for annotation key: $annotation_key"
-                    local annotation=$(echo "$live_state" | jq -r --arg key "$annotation_key" '.liveState.metadata.annotations[$key] // empty')
+                    # Extract the annotation value
+                    log_debug "Looking for annotation: $annotation_key"
+                    local annotation
+                    annotation=$(echo "$live_state" | jq -r --arg key "$annotation_key" '.liveState.metadata.annotations[$key] // empty' 2>&1)
                     
                     if [[ -z "$annotation" ]]; then
-                        log_error "Could not find annotation: $annotation_key"
-                        log_debug "Full annotations object:"
+                        log_error "Annotation not found: $annotation_key"
+                        log_debug "All annotations:"
                         echo "$live_state" | jq '.liveState.metadata.annotations'
-                        echo ""
                         return 1
                     fi
                     
-                    log_debug "Found annotation value (first 100 chars): ${annotation:0:100}"
+                    log_debug "Found annotation (length: ${#annotation} chars)"
+                    log_debug "Annotation preview: ${annotation:0:150}..."
                     
-                    # Parse the JSON annotation and extract canary weight (first target group)
-                    # The annotation value is a JSON string that needs to be parsed first
-                    log_debug "Attempting to parse annotation JSON..."
-                    local canary_weight=$(echo "$annotation" | jq -r 'fromjson | .ForwardConfig.TargetGroups[0].Weight // empty' 2>&1)
+                    # Parse the JSON string and extract the weight
+                    log_debug "Parsing annotation JSON to extract weight..."
+                    local canary_weight
+                    canary_weight=$(echo "$annotation" | jq -r 'fromjson | .ForwardConfig.TargetGroups[0].Weight // empty' 2>&1)
                     local jq_status=$?
                     
-                    if [[ $jq_status -ne 0 ]] || [[ -z "$canary_weight" ]] || [[ "$canary_weight" == *"parse error"* ]]; then
-                        log_error "Could not extract canary weight from annotation"
-                        log_debug "jq exit status: $jq_status"
-                        log_debug "jq output: $canary_weight"
-                        log_debug "Raw annotation value:"
-                        echo "$annotation"
-                        echo ""
+                    if [[ $jq_status -ne 0 ]]; then
+                        log_error "Failed to parse annotation JSON (jq exit code: $jq_status)"
+                        log_error "jq output: $canary_weight"
+                        log_debug "Full annotation value:"
+                        log_debug "$annotation"
+                        return 1
+                    fi
+                    
+                    if [[ -z "$canary_weight" ]]; then
+                        log_error "Could not extract weight from annotation"
+                        log_debug "Parsed structure:"
+                        echo "$annotation" | jq 'fromjson'
                         return 1
                     fi
                     
                     log_debug "Successfully extracted canary weight: $canary_weight"
                     echo "$canary_weight"
+                    return 0
                 }
                 
                 # Wait for traffic weight to match expected value
@@ -542,12 +528,26 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     
                     while true; do
                         local current_weight
-                        current_weight=$(get_current_traffic_weight "$APP_NAME" "$INGRESS_NAME" "$INGRESS_ACTION_ANNOTATION" 2>&1)
+                        current_weight=$(get_current_traffic_weight "$APP_NAME" "$INGRESS_NAME" "$INGRESS_ACTION_ANNOTATION")
                         local weight_status=$?
                         
                         # Check if we got an error
-                        if [[ $weight_status -ne 0 ]] || [[ -z "$current_weight" ]]; then
-                            log_error "Failed to retrieve current traffic weight"
+                        if [[ $weight_status -ne 0 ]]; then
+                            log_error "Failed to retrieve current traffic weight (exit code: $weight_status)"
+                            
+                            local elapsed=$(($(date +%s) - start_time))
+                            if [[ $elapsed -gt $MAX_WAIT_TIME ]]; then
+                                log_error "Timeout waiting for traffic weight update"
+                                return 1
+                            fi
+                            
+                            log_info "Retrying in ${CHECK_INTERVAL}s..."
+                            sleep $CHECK_INTERVAL
+                            continue
+                        fi
+                        
+                        if [[ -z "$current_weight" ]]; then
+                            log_error "Retrieved empty weight value"
                             
                             local elapsed=$(($(date +%s) - start_time))
                             if [[ $elapsed -gt $MAX_WAIT_TIME ]]; then
