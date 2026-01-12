@@ -434,11 +434,32 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     local ingress_name=$2
                     local flags=$(build_argocd_flags)
                     
-                    argocd app get "$app_name" \
+                    log_debug "Calling: argocd app get $app_name --resource networking.k8s.io:Ingress:$ingress_name"
+                    
+                    local result
+                    result=$(argocd app get "$app_name" \
                         --resource networking.k8s.io:Ingress:"$ingress_name" \
                         --show-params false \
                         $flags \
-                        -o json 2>/dev/null || echo ""
+                        -o json 2>&1)
+                    
+                    local status=$?
+                    
+                    if [[ $status -ne 0 ]]; then
+                        log_error "argocd command failed with status $status"
+                        log_error "Error output: $result"
+                        echo ""
+                        return 1
+                    fi
+                    
+                    if [[ -z "$result" ]]; then
+                        log_error "argocd command returned empty result"
+                        echo ""
+                        return 1
+                    fi
+                    
+                    log_debug "Successfully retrieved JSON from ArgoCD (${#result} bytes)"
+                    echo "$result"
                 }
                 
                 # Get current traffic weight from ingress live state
@@ -448,15 +469,29 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     local annotation_key=$3
                     
                     log_debug "Fetching ingress live state for: $ingress_name"
-                    local live_state=$(get_ingress_live_state "$app_name" "$ingress_name")
+                    local live_state
+                    live_state=$(get_ingress_live_state "$app_name" "$ingress_name")
+                    local state_status=$?
                     
-                    if [[ -z "$live_state" ]] || [[ "$live_state" == "null" ]]; then
+                    if [[ $state_status -ne 0 ]] || [[ -z "$live_state" ]] || [[ "$live_state" == "null" ]]; then
                         log_error "Could not retrieve ingress live state"
                         echo ""
                         return 1
                     fi
                     
                     log_debug "Successfully retrieved ingress live state"
+                    
+                    # Debug: Check if liveState exists
+                    local has_live_state=$(echo "$live_state" | jq 'has("liveState")')
+                    log_debug "Has liveState field: $has_live_state"
+                    
+                    if [[ "$has_live_state" != "true" ]]; then
+                        log_error "Response does not contain liveState field"
+                        log_debug "Response structure:"
+                        echo "$live_state" | jq 'keys'
+                        echo ""
+                        return 1
+                    fi
                     
                     # Debug: Show all annotations
                     log_debug "Available annotations:"
