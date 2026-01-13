@@ -11,7 +11,7 @@ resources:
 images:
   - name: sandbox-1-d20
     newName: 336151728602.dkr.ecr.us-east-1.amazonaws.com/sandbox-1-d20  # Replace with your image repository
-    newTag: latest  # Replace with specific version tag
+    newTag: "#{Octopus.Action.Package[sandbox-1-d20].PackageVersion}"
 
 # Add environment-specific labels
 commonLabels:
