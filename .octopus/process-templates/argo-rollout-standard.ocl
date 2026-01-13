@@ -525,33 +525,59 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     # If not found in rollout status, search for AnalysisRuns by label
                     log_info "No AnalysisRun in rollout status, searching by labels..."
                     
-                    # Try to find AnalysisRuns with the rollout label
-                    local ar_list=$(kubectl get analysisruns -n "$namespace" -l "rollouts-pod-template-hash" -o json 2>/dev/null)
+                    # Get the current revision and pod hash to find the correct AnalysisRun
+                    local current_revision=$(echo "$rollout_json" | jq -r '.metadata.annotations."rollout.argoproj.io/revision" // empty')
+                    local current_hash=$(echo "$rollout_json" | jq -r '.status.currentPodHash // empty')
+                    
+                    log_debug "Current revision: $current_revision"
+                    log_debug "Current pod hash: $current_hash"
+                    
+                    # Try to find AnalysisRuns matching current revision and hash
+                    local ar_list=$(kubectl get analysisruns -n "$namespace" -o json 2>/dev/null)
                     
                     if [[ -n "$ar_list" ]]; then
-                        # Get the most recent AnalysisRun that matches this rollout
-                        local recent_ar=$(echo "$ar_list" | jq -r --arg rollout "$rollout_name" '
+                        # First try: Find Step AnalysisRun for current revision and hash
+                        local recent_ar=$(echo "$ar_list" | jq -r --arg rollout "$rollout_name" --arg rev "$current_revision" --arg hash "$current_hash" '
                             .items[] | 
-                            select(.metadata.ownerReferences[]?.name == $rollout or 
-                                   (.metadata.name | startswith($rollout))) |
-                            .metadata.name' | head -1)
+                            select(
+                                .metadata.ownerReferences[]?.name == $rollout and
+                                .metadata.annotations."rollout.argoproj.io/revision" == $rev and
+                                .metadata.labels."rollouts-pod-template-hash" == $hash and
+                                .metadata.labels."rollout-type" == "Step"
+                            ) | 
+                            .metadata.name' | tail -1)
                         
                         if [[ -n "$recent_ar" ]]; then
-                            log_info "Found AnalysisRun by label/owner: $recent_ar"
+                            log_info "Found Step AnalysisRun for current revision: $recent_ar"
                             echo "$recent_ar"
                             return 0
                         fi
-                    fi
-                    
-                    # Last resort: find any recent AnalysisRuns in the namespace
-                    log_info "Searching for recent AnalysisRuns in namespace..."
-                    local all_ars=$(kubectl get analysisruns -n "$namespace" --sort-by=.metadata.creationTimestamp -o json 2>/dev/null)
-                    
-                    if [[ -n "$all_ars" ]]; then
-                        local recent_ar=$(echo "$all_ars" | jq -r '.items[-1].metadata.name // empty')
+                        
+                        # Second try: Find Background AnalysisRun for current hash
+                        recent_ar=$(echo "$ar_list" | jq -r --arg rollout "$rollout_name" --arg hash "$current_hash" '
+                            .items[] | 
+                            select(
+                                .metadata.ownerReferences[]?.name == $rollout and
+                                .metadata.labels."rollouts-pod-template-hash" == $hash and
+                                .metadata.labels."rollout-type" == "Background"
+                            ) | 
+                            .metadata.name' | tail -1)
                         
                         if [[ -n "$recent_ar" ]]; then
-                            log_info "Found most recent AnalysisRun in namespace: $recent_ar"
+                            log_info "Found Background AnalysisRun for current hash: $recent_ar"
+                            echo "$recent_ar"
+                            return 0
+                        fi
+                        
+                        # Third try: Most recent AnalysisRun for this rollout
+                        recent_ar=$(echo "$ar_list" | jq -r --arg rollout "$rollout_name" '
+                            .items[] | 
+                            select(.metadata.ownerReferences[]?.name == $rollout) |
+                            {name: .metadata.name, created: .metadata.creationTimestamp}' | 
+                            jq -s 'sort_by(.created) | .[-1].name // empty')
+                        
+                        if [[ -n "$recent_ar" ]]; then
+                            log_info "Found most recent AnalysisRun for rollout: $recent_ar"
                             echo "$recent_ar"
                             return 0
                         fi
