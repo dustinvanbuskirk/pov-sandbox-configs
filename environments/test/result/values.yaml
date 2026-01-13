@@ -1,7 +1,7 @@
 result:
   image:
     repository: 336151728602.dkr.ecr.us-east-1.amazonaws.com/sandbox-1-result
-    tag: 0.0.59
+    tag: 0.0.60
   postgresql:
     server: infrastructure-test-eva-postgresql.eva-test.svc.cluster.local:5432
     postgresqlUser: postgres
