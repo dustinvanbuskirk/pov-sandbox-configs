@@ -1,9 +1,11 @@
-# Stable Service
 apiVersion: v1
 kind: Service
 metadata:
-  name: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+  name: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
   namespace: #{Kubernetes.Namespace}
+  labels:
+    app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
+    version: #{Octopus.Release.Number}
 spec:
   type: ClusterIP
   ports:
@@ -12,14 +14,17 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+    app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
 ---
-# Preview/Canary Service
 apiVersion: v1
 kind: Service
 metadata:
-  name: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}-preview
+  name: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}-preview
   namespace: #{Kubernetes.Namespace}
+  labels:
+    app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
+    version: #{Octopus.Release.Number}
+    service-type: preview
 spec:
   type: ClusterIP
   ports:
@@ -28,4 +33,4 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+    app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}

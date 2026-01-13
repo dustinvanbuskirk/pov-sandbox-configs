@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+  name: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
   namespace: #{Kubernetes.Namespace}
   annotations:
     alb.ingress.kubernetes.io/certificate-arn: #{AWS.ACM.CertificateArn}
@@ -17,9 +17,9 @@ metadata:
     alb.ingress.kubernetes.io/success-codes: "200"
     alb.ingress.kubernetes.io/target-type: ip
     external-dns.alpha.kubernetes.io/hostname: #{Application.Domain}
-    rollouts.argoproj.io/managed-alb-annotations: '{"#{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}":["alb.ingress.kubernetes.io/actions.#{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}"]}'
+    rollouts.argoproj.io/managed-alb-annotations: '{"#{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}":["alb.ingress.kubernetes.io/actions.#{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}"]}'
   labels:
-    app: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+    app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
     version: #{Octopus.Release.Number}
 spec:
   ingressClassName: alb
@@ -29,7 +29,7 @@ spec:
       paths:
       - backend:
           service:
-            name: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+            name: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
             port:
               number: 80
         path: /

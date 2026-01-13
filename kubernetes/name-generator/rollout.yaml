@@ -1,30 +1,30 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
-  name: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+  name: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
   namespace: #{Kubernetes.Namespace}
   labels:
-    app: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+    app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
     version: #{Octopus.Release.Number}
 spec:
   replicas: #{Kubernetes.Replicas}
   revisionHistoryLimit: 3
   selector:
     matchLabels:
-      app: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+      app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
   strategy:
     canary:
       analysis:
         args:
         - name: service-name
-          value: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}-preview
+          value: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}-preview
         - name: canary-hash
           valueFrom:
             podTemplateHashValue: Latest
         templates:
         - templateName: curl-health-check
-      canaryService: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}-preview
-      stableService: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+      canaryService: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}-preview
+      stableService: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
       steps:
       - pause: {}
       - setWeight: 20
@@ -40,16 +40,16 @@ spec:
       - pause: {}
       trafficRouting:
         alb:
-          ingress: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+          ingress: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
           servicePort: 80
   template:
     metadata:
       labels:
-        app: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+        app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
         version: #{Octopus.Release.Number}
     spec:
       containers:
-      - name: #{Octopus.Project.Name}
+      - name: #{Octopus.Project.Name | ToLower | Replace " " "-"}
         image: #{Docker.Image}:#{Octopus.Release.Number}
         imagePullPolicy: Always
         ports:
