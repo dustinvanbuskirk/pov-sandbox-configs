@@ -317,6 +317,7 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                 YELLOW='\033[1;33m'
                 NC='\033[0m'
                 
+                # All log functions output to stderr to not interfere with function return values
                 log_info() {
                     echo -e "${GREEN}[INFO]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1" >&2
                 }
@@ -387,7 +388,7 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     if [[ -z "$canary_weight" ]]; then
                         log_error "Could not extract canary weight from Rollout status"
                         log_debug "Canary weights object:"
-                        echo "$rollout_json" | jq '.status.canary.weights'
+                        echo "$rollout_json" | jq '.status.canary.weights' >&2
                         return 1
                     fi
                     
@@ -478,7 +479,7 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     # Check for unhealthy conditions
                     if [[ "$phase" == "Degraded" ]] || [[ "$health_status" == "Degraded" ]]; then
                         log_error "Rollout is in degraded state"
-                        echo "$rollout_json" | jq '.status'
+                        echo "$rollout_json" | jq '.status' >&2
                         return 1
                     fi
                     
@@ -505,7 +506,7 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     if [[ $? -ne 0 ]]; then
                         log_warn "Could not retrieve rollout status"
                         echo ""
-                        return 0  # Return success with empty string, not an error
+                        return 0
                     fi
                     
                     # Get current step index
@@ -526,6 +527,108 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     return 0
                 }
                 
+                # Get and display AnalysisRun details and logs
+                show_analysisrun_details() {
+                    local ar_name=$1
+                    local namespace=$2
+                    local ar_json=$3
+                    
+                    log_info "=== AnalysisRun Details: $ar_name ==="
+                    
+                    local ar_phase=$(echo "$ar_json" | jq -r '.status.phase // "Unknown"')
+                    local ar_message=$(echo "$ar_json" | jq -r '.status.message // "N/A"')
+                    local start_time=$(echo "$ar_json" | jq -r '.status.startedAt // "N/A"')
+                    
+                    log_info "Phase: $ar_phase"
+                    log_info "Message: $ar_message"
+                    log_info "Started At: $start_time"
+                    log_info ""
+                    
+                    # Show all metrics
+                    log_info "Metric Results:"
+                    local metric_count=$(echo "$ar_json" | jq '.status.metricResults | length')
+                    
+                    if [[ "$metric_count" -gt 0 ]]; then
+                        echo "$ar_json" | jq -r '.status.metricResults[]? | "
+                  Metric: \(.name)
+                    Phase: \(.phase)
+                    Successful: \(.successful // 0) / \(.count // 0)
+                    Failed: \(.failed // 0) / \(.count // 0)
+                    Consecutive Errors: \(.consecutiveError // 0)
+                    Message: \(.message // "N/A")
+                "' >&2
+                    else
+                        log_info "  No metrics recorded yet"
+                    fi
+                    
+                    log_info ""
+                    
+                    # Get pod logs for the analysis run
+                    log_info "=== AnalysisRun Pod Logs ==="
+                    
+                    # Find pods associated with this analysis run - try multiple label formats
+                    local ar_pods=$(kubectl get pods -n "$namespace" -l "analysisRun=$ar_name" -o name 2>/dev/null)
+                    
+                    if [[ -z "$ar_pods" ]]; then
+                        ar_pods=$(kubectl get pods -n "$namespace" -l "analysis-run-name=$ar_name" -o name 2>/dev/null)
+                    fi
+                    
+                    if [[ -z "$ar_pods" ]]; then
+                        # Try finding by owner reference
+                        ar_pods=$(kubectl get pods -n "$namespace" -o json 2>/dev/null | jq -r --arg ar "$ar_name" '.items[] | select(.metadata.ownerReferences[]?.name == $ar) | "pod/\(.metadata.name)"')
+                    fi
+                    
+                    if [[ -n "$ar_pods" ]]; then
+                        while IFS= read -r pod; do
+                            local pod_name=${pod#pod/}
+                            log_info "--- Logs from pod: $pod_name ---"
+                            
+                            # Get logs from the pod
+                            local pod_logs=$(kubectl logs "$pod_name" -n "$namespace" --tail=100 2>&1)
+                            
+                            if [[ $? -eq 0 ]]; then
+                                # Output logs directly to stderr so they appear in Octopus
+                                echo "$pod_logs" >&2
+                            else
+                                log_warn "Failed to retrieve logs from $pod_name: $pod_logs"
+                            fi
+                            
+                            log_info "--- End logs from $pod_name ---"
+                            log_info ""
+                        done <<< "$ar_pods"
+                    else
+                        log_warn "No pods found for AnalysisRun $ar_name with standard labels"
+                        log_info "Attempting to find pods with partial name match..."
+                        
+                        # Try to find any pods with the analysis run name in it
+                        local related_pods=$(kubectl get pods -n "$namespace" -o name 2>/dev/null | grep "$ar_name" || echo "")
+                        
+                        if [[ -n "$related_pods" ]]; then
+                            log_info "Found potentially related pods:"
+                            while IFS= read -r pod; do
+                                local pod_name=${pod#pod/}
+                                log_info "--- Logs from pod: $pod_name ---"
+                                
+                                local pod_logs=$(kubectl logs "$pod_name" -n "$namespace" --tail=100 2>&1)
+                                
+                                if [[ $? -eq 0 ]]; then
+                                    echo "$pod_logs" >&2
+                                else
+                                    log_warn "Failed to retrieve logs from $pod_name"
+                                fi
+                                
+                                log_info "--- End logs from $pod_name ---"
+                                log_info ""
+                            done <<< "$related_pods"
+                        else
+                            log_warn "No related pods found by name pattern either"
+                        fi
+                    fi
+                    
+                    log_info "=== End AnalysisRun Details ==="
+                    log_info ""
+                }
+                
                 # Wait for analysis run completion
                 wait_for_analysis_completion() {
                     local rollout_name=$1
@@ -543,23 +646,16 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     fi
                     
                     log_info "Found active AnalysisRun: $ar_name"
+                    log_info ""
                     
                     # Now monitor the AnalysisRun until completion
                     while true; do
-                        # Re-check in case the AnalysisRun changes
-                        ar_name=$(check_analysis_runs "$rollout_name" "$namespace")
-                        
-                        if [[ -z "$ar_name" ]]; then
-                            log_info "AnalysisRun completed or no longer active"
-                            return 0
-                        fi
-                        
-                        # Get the AnalysisRun
+                        # Get the AnalysisRun details
                         local ar_json
                         ar_json=$(kubectl get analysisrun "$ar_name" -n "$namespace" -o json 2>&1)
                         
                         if [[ $? -ne 0 ]]; then
-                            log_warn "Could not retrieve AnalysisRun details: $ar_json"
+                            log_warn "Could not retrieve AnalysisRun details, will retry..."
                             sleep $CHECK_INTERVAL
                             continue
                         fi
@@ -571,65 +667,26 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                             "Successful")
                                 log_info "✓ AnalysisRun $ar_name completed successfully"
                                 log_info ""
-                                log_info "=== AnalysisRun Summary ==="
                                 
-                                # Show metric results
-                                local metrics=$(echo "$ar_json" | jq -r '.status.metricResults[]? | "  Metric: \(.name) - Phase: \(.phase) - Message: \(.message // "N/A")"')
-                                if [[ -n "$metrics" ]]; then
-                                    log_info "Metrics:"
-                                    echo "$metrics" >&2
-                                else
-                                    log_info "No metric results available"
-                                fi
+                                # Show details and logs
+                                show_analysisrun_details "$ar_name" "$namespace" "$ar_json"
                                 
                                 return 0
                                 ;;
                             "Failed"|"Error")
                                 log_error "✗ AnalysisRun $ar_name failed!"
-                                log_error "Phase: $ar_phase"
-                                log_error "Message: $ar_message"
                                 log_error ""
-                                log_error "=== AnalysisRun Failure Details ==="
                                 
-                                # Get detailed metric results
-                                log_error "Metric Results:"
-                                local metric_results=$(echo "$ar_json" | jq '.status.metricResults[]?')
-                                
-                                if [[ -n "$metric_results" ]]; then
-                                    echo "$ar_json" | jq -r '.status.metricResults[]? | "
-                Metric: \(.name)
-                  Phase: \(.phase)
-                  Message: \(.message // "N/A")
-                  Successful: \(.successful // 0) / \(.count // 0)
-                  Failed: \(.failed // 0) / \(.count // 0)
-                "' >&2
-                                fi
-                                
-                                # Try to get pod logs for the analysis run
-                                log_error ""
-                                log_error "Attempting to retrieve AnalysisRun pod logs..."
-                                
-                                # Find pods for this analysis run
-                                local ar_pods=$(kubectl get pods -n "$namespace" -l "analysisrun=$ar_name" -o name 2>/dev/null)
-                                
-                                if [[ -n "$ar_pods" ]]; then
-                                    while IFS= read -r pod; do
-                                        local pod_name=${pod#pod/}
-                                        log_error "Logs from $pod_name:"
-                                        kubectl logs "$pod" -n "$namespace" --tail=50 2>&1 | sed 's/^/  /' >&2
-                                        log_error ""
-                                    done <<< "$ar_pods"
-                                else
-                                    log_warn "No pods found for AnalysisRun $ar_name"
-                                fi
+                                # Show details and logs
+                                show_analysisrun_details "$ar_name" "$namespace" "$ar_json"
                                 
                                 return 1
                                 ;;
                             "Running"|"Pending"|"Inconclusive")
                                 log_info "AnalysisRun $ar_name status: $ar_phase - $ar_message"
                                 
-                                # Show current metric status
-                                local running_metrics=$(echo "$ar_json" | jq -r '.status.metricResults[]? | "  \(.name): \(.phase) (\(.successful // 0)/\(.count // 0))"')
+                                # Show current metric status inline
+                                local running_metrics=$(echo "$ar_json" | jq -r '.status.metricResults[]? | "  \(.name): \(.phase) (\(.successful // 0)/\(.count // 0) successful)"')
                                 if [[ -n "$running_metrics" ]]; then
                                     echo "$running_metrics" >&2
                                 fi
@@ -643,11 +700,10 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                         if [[ $elapsed -gt $MAX_WAIT_TIME ]]; then
                             log_error "Timeout waiting for AnalysisRun completion"
                             log_error ""
-                            log_error "=== Final AnalysisRun State ==="
-                            log_error "Phase: $ar_phase"
-                            log_error "Message: $ar_message"
-                            log_error "Metric Results:"
-                            echo "$ar_json" | jq '.status.metricResults' >&2
+                            
+                            # Show details and logs even on timeout
+                            show_analysisrun_details "$ar_name" "$namespace" "$ar_json"
+                            
                             return 1
                         fi
                         
