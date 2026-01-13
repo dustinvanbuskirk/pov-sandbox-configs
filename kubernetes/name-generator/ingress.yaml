@@ -1,11 +1,11 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: name-generator
-  namespace: "#{Project.Namespace}"
+  name: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+  namespace: #{Kubernetes.Namespace}
   annotations:
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:336151728602:certificate/2844a5a3-cc60-48f5-8648-0907dee707c6
-    alb.ingress.kubernetes.io/group.name: cluster-shared-alb
+    alb.ingress.kubernetes.io/certificate-arn: #{AWS.ACM.CertificateArn}
+    alb.ingress.kubernetes.io/group.name: #{ALB.GroupName}
     alb.ingress.kubernetes.io/group.order: "20"
     alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
     alb.ingress.kubernetes.io/healthcheck-path: /
@@ -16,17 +16,21 @@ metadata:
     alb.ingress.kubernetes.io/ssl-redirect: "443"
     alb.ingress.kubernetes.io/success-codes: "200"
     alb.ingress.kubernetes.io/target-type: ip
-    external-dns.alpha.kubernetes.io/hostname: "#{Project.IngressDomain}"
+    external-dns.alpha.kubernetes.io/hostname: #{Application.Domain}
+    rollouts.argoproj.io/managed-alb-annotations: '{"#{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}":["alb.ingress.kubernetes.io/actions.#{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}"]}'
+  labels:
+    app: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+    version: #{Octopus.Release.Number}
 spec:
   ingressClassName: alb
   rules:
-  - host: "#{Project.IngressDomain}"
+  - host: #{Application.Domain}
     http:
       paths:
-      - path: /
-        pathType: Prefix
-        backend:
+      - backend:
           service:
-            name: name-generator
+            name: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
             port:
               number: 80
+        path: /
+        pathType: Prefix

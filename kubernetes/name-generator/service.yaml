@@ -1,16 +1,31 @@
+# Stable Service
 apiVersion: v1
 kind: Service
 metadata:
-  name: name-generator
-  namespace: "#{Project.Namespace}"
-  labels:
-    app: name-generator
+  name: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+  namespace: #{Kubernetes.Namespace}
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
   - port: 80
-    targetPort: 8080
+    targetPort: 80
     protocol: TCP
     name: http
   selector:
-    app: name-generator
+    app: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
+---
+# Preview/Canary Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}-preview
+  namespace: #{Kubernetes.Namespace}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    app: #{Octopus.Project.Name}-#{Octopus.Environment.Name | ToLower}
