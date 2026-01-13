@@ -6,7 +6,7 @@ spec:
   template:
     spec:
       containers:
-      - name: d20-dice-roller
+      - name: sandbox-1-d20
         resources:
           requests:
             cpu: 200m

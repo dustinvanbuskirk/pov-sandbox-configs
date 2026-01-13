@@ -9,9 +9,9 @@ resources:
 
 # Override image with specific repository and tag
 images:
-  - name: d20-dice-roller
+  - name: sandbox-1-d20
     newName: 336151728602.dkr.ecr.us-east-1.amazonaws.com/sandbox-1-d20  # Replace with your image repository
-    newTag: #{Octopus.Action.Package[YourPackageName].PackageVersion}  # Replace with specific version tag
+    newTag: latest  # Replace with specific version tag
 
 # Add environment-specific labels
 commonLabels:

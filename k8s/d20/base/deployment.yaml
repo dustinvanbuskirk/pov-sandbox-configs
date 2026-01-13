@@ -15,8 +15,8 @@ spec:
         app: d20-dice-roller
     spec:
       containers:
-      - name: d20-dice-roller
-        image: d20-dice-roller:latest  # Will be replaced by Kustomize overlay
+      - name: sandbox-1-d20
+        image: sandbox-1-d20:latest  # Will be replaced by Kustomize overlay
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
