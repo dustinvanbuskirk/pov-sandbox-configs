@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: name-generator
-  namespace: "#{Namespace}"
+  namespace: "#{Project.Namespace}"
   labels:
     app: name-generator
 spec:
@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: name-generator
-        image: "#{Octopus.Action.Package[name-generator].Image}:#{Octopus.Action.Package[name-generator].PackageVersion}"
+        image: "336151728602.dkr.ecr.us-east-1.amazonaws.com/sandbox-1-name-generator:#{Octopus.Action.Package[name-generator].PackageVersion}"
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
