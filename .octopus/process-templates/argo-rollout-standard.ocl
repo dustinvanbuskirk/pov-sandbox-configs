@@ -602,15 +602,24 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     log_info "=== AnalysisRun Pod Logs ==="
                     
                     # Find pods associated with this analysis run - try multiple label formats
+                    log_debug "Searching for pods with label analysisRun=$ar_name"
                     local ar_pods=$(kubectl get pods -n "$namespace" -l "analysisRun=$ar_name" -o name 2>/dev/null)
                     
                     if [[ -z "$ar_pods" ]]; then
+                        log_debug "Searching for pods with label analysis-run-name=$ar_name"
                         ar_pods=$(kubectl get pods -n "$namespace" -l "analysis-run-name=$ar_name" -o name 2>/dev/null)
                     fi
                     
                     if [[ -z "$ar_pods" ]]; then
+                        log_debug "Searching for pods by owner reference"
                         # Try finding by owner reference
                         ar_pods=$(kubectl get pods -n "$namespace" -o json 2>/dev/null | jq -r --arg ar "$ar_name" '.items[] | select(.metadata.ownerReferences[]?.name == $ar) | "pod/\(.metadata.name)"')
+                    fi
+                    
+                    if [[ -z "$ar_pods" ]]; then
+                        log_debug "Searching for pods with job-name containing the analysis run"
+                        # Try finding by job-name label (AnalysisRuns create Jobs which create Pods)
+                        ar_pods=$(kubectl get pods -n "$namespace" -l "job-name" -o json 2>/dev/null | jq -r --arg ar "$ar_name" '.items[] | select(.metadata.labels."job-name" | contains($ar)) | "pod/\(.metadata.name)"')
                     fi
                     
                     if [[ -n "$ar_pods" ]]; then
@@ -618,14 +627,20 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                             local pod_name=${pod#pod/}
                             log_info "--- Logs from pod: $pod_name ---"
                             
-                            # Get logs from the pod
+                            # Get logs from the pod (try current and previous if restarted)
                             local pod_logs=$(kubectl logs "$pod_name" -n "$namespace" --tail=100 2>&1)
                             
                             if [[ $? -eq 0 ]]; then
                                 # Output logs directly to stderr so they appear in Octopus
                                 echo "$pod_logs" >&2
                             else
-                                log_warn "Failed to retrieve logs from $pod_name: $pod_logs"
+                                log_warn "Failed to retrieve logs from $pod_name, trying previous..."
+                                pod_logs=$(kubectl logs "$pod_name" -n "$namespace" --previous --tail=100 2>&1)
+                                if [[ $? -eq 0 ]]; then
+                                    echo "$pod_logs" >&2
+                                else
+                                    log_warn "No logs available from $pod_name (pod may have been cleaned up)"
+                                fi
                             fi
                             
                             log_info "--- End logs from $pod_name ---"
@@ -649,7 +664,7 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                                 if [[ $? -eq 0 ]]; then
                                     echo "$pod_logs" >&2
                                 else
-                                    log_warn "Failed to retrieve logs from $pod_name"
+                                    log_warn "No logs available from $pod_name"
                                 fi
                                 
                                 log_info "--- End logs from $pod_name ---"
@@ -657,6 +672,23 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                             done <<< "$related_pods"
                         else
                             log_warn "No related pods found by name pattern either"
+                            log_info "Pod may have been cleaned up by Kubernetes. Checking for completed jobs..."
+                            
+                            # Look for jobs that might have created the pods
+                            local jobs=$(kubectl get jobs -n "$namespace" -o json 2>/dev/null | jq -r --arg ar "$ar_name" '.items[] | select(.metadata.name | contains($ar)) | .metadata.name')
+                            
+                            if [[ -n "$jobs" ]]; then
+                                log_info "Found related jobs:"
+                                while IFS= read -r job; do
+                                    log_info "  Job: $job"
+                                    local job_status=$(kubectl get job "$job" -n "$namespace" -o json | jq -r '.status | "Completions: \(.succeeded // 0)/\(.completions // 0), Active: \(.active // 0), Failed: \(.failed // 0)"')
+                                    log_info "    Status: $job_status"
+                                done <<< "$jobs"
+                                log_info ""
+                                log_info "Note: Pods from completed jobs may have been cleaned up by Kubernetes."
+                            else
+                                log_warn "No related jobs found either"
+                            fi
                         fi
                     fi
                     
