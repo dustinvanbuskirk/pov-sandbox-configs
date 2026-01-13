@@ -516,14 +516,49 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                     # Check for current step analysis run
                     local current_analysis=$(echo "$rollout_json" | jq -r '.status.canary.currentStepAnalysisRun // empty')
                     
-                    if [[ -z "$current_analysis" ]]; then
-                        log_info "No active AnalysisRun for current step"
-                        echo ""
+                    if [[ -n "$current_analysis" ]]; then
+                        log_info "Active AnalysisRun from rollout status: $current_analysis"
+                        echo "$current_analysis"
                         return 0
                     fi
                     
-                    log_info "Active AnalysisRun: $current_analysis"
-                    echo "$current_analysis"
+                    # If not found in rollout status, search for AnalysisRuns by label
+                    log_info "No AnalysisRun in rollout status, searching by labels..."
+                    
+                    # Try to find AnalysisRuns with the rollout label
+                    local ar_list=$(kubectl get analysisruns -n "$namespace" -l "rollouts-pod-template-hash" -o json 2>/dev/null)
+                    
+                    if [[ -n "$ar_list" ]]; then
+                        # Get the most recent AnalysisRun that matches this rollout
+                        local recent_ar=$(echo "$ar_list" | jq -r --arg rollout "$rollout_name" '
+                            .items[] | 
+                            select(.metadata.ownerReferences[]?.name == $rollout or 
+                                   (.metadata.name | startswith($rollout))) |
+                            .metadata.name' | head -1)
+                        
+                        if [[ -n "$recent_ar" ]]; then
+                            log_info "Found AnalysisRun by label/owner: $recent_ar"
+                            echo "$recent_ar"
+                            return 0
+                        fi
+                    fi
+                    
+                    # Last resort: find any recent AnalysisRuns in the namespace
+                    log_info "Searching for recent AnalysisRuns in namespace..."
+                    local all_ars=$(kubectl get analysisruns -n "$namespace" --sort-by=.metadata.creationTimestamp -o json 2>/dev/null)
+                    
+                    if [[ -n "$all_ars" ]]; then
+                        local recent_ar=$(echo "$all_ars" | jq -r '.items[-1].metadata.name // empty')
+                        
+                        if [[ -n "$recent_ar" ]]; then
+                            log_info "Found most recent AnalysisRun in namespace: $recent_ar"
+                            echo "$recent_ar"
+                            return 0
+                        fi
+                    fi
+                    
+                    log_info "No active AnalysisRun found"
+                    echo ""
                     return 0
                 }
                 
