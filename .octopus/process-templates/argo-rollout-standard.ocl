@@ -33,23 +33,7 @@ parameter "RolloutNameSpace" {
     label = ""
 }
 
-parameter "ApplicationName" {
-    display_settings = {
-        Octopus.ControlType = "SingleLineText"
-    }
-    help_text = ""
-    label = ""
-}
-
 parameter "IngressName" {
-    display_settings = {
-        Octopus.ControlType = "SingleLineText"
-    }
-    help_text = ""
-    label = ""
-}
-
-parameter "IngressActionAnnotation" {
     display_settings = {
         Octopus.ControlType = "SingleLineText"
     }
