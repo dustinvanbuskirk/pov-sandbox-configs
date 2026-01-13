@@ -542,6 +542,8 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                         return 0
                     fi
                     
+                    log_info "Found active AnalysisRun: $ar_name"
+                    
                     # Now monitor the AnalysisRun until completion
                     while true; do
                         # Re-check in case the AnalysisRun changes
@@ -568,21 +570,69 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                         case "$ar_phase" in
                             "Successful")
                                 log_info "✓ AnalysisRun $ar_name completed successfully"
+                                log_info ""
+                                log_info "=== AnalysisRun Summary ==="
+                                
+                                # Show metric results
+                                local metrics=$(echo "$ar_json" | jq -r '.status.metricResults[]? | "  Metric: \(.name) - Phase: \(.phase) - Message: \(.message // "N/A")"')
+                                if [[ -n "$metrics" ]]; then
+                                    log_info "Metrics:"
+                                    echo "$metrics" >&2
+                                else
+                                    log_info "No metric results available"
+                                fi
+                                
                                 return 0
                                 ;;
                             "Failed"|"Error")
                                 log_error "✗ AnalysisRun $ar_name failed!"
                                 log_error "Phase: $ar_phase"
                                 log_error "Message: $ar_message"
+                                log_error ""
+                                log_error "=== AnalysisRun Failure Details ==="
                                 
-                                # Get metric results for detailed failure info
+                                # Get detailed metric results
                                 log_error "Metric Results:"
-                                echo "$ar_json" | jq '.status.metricResults'
+                                local metric_results=$(echo "$ar_json" | jq '.status.metricResults[]?')
+                                
+                                if [[ -n "$metric_results" ]]; then
+                                    echo "$ar_json" | jq -r '.status.metricResults[]? | "
+                Metric: \(.name)
+                  Phase: \(.phase)
+                  Message: \(.message // "N/A")
+                  Successful: \(.successful // 0) / \(.count // 0)
+                  Failed: \(.failed // 0) / \(.count // 0)
+                "' >&2
+                                fi
+                                
+                                # Try to get pod logs for the analysis run
+                                log_error ""
+                                log_error "Attempting to retrieve AnalysisRun pod logs..."
+                                
+                                # Find pods for this analysis run
+                                local ar_pods=$(kubectl get pods -n "$namespace" -l "analysisrun=$ar_name" -o name 2>/dev/null)
+                                
+                                if [[ -n "$ar_pods" ]]; then
+                                    while IFS= read -r pod; do
+                                        local pod_name=${pod#pod/}
+                                        log_error "Logs from $pod_name:"
+                                        kubectl logs "$pod" -n "$namespace" --tail=50 2>&1 | sed 's/^/  /' >&2
+                                        log_error ""
+                                    done <<< "$ar_pods"
+                                else
+                                    log_warn "No pods found for AnalysisRun $ar_name"
+                                fi
                                 
                                 return 1
                                 ;;
                             "Running"|"Pending"|"Inconclusive")
                                 log_info "AnalysisRun $ar_name status: $ar_phase - $ar_message"
+                                
+                                # Show current metric status
+                                local running_metrics=$(echo "$ar_json" | jq -r '.status.metricResults[]? | "  \(.name): \(.phase) (\(.successful // 0)/\(.count // 0))"')
+                                if [[ -n "$running_metrics" ]]; then
+                                    echo "$running_metrics" >&2
+                                fi
                                 ;;
                             *)
                                 log_warn "Unknown AnalysisRun phase: $ar_phase"
@@ -592,8 +642,12 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
                         local elapsed=$(($(date +%s) - start_time))
                         if [[ $elapsed -gt $MAX_WAIT_TIME ]]; then
                             log_error "Timeout waiting for AnalysisRun completion"
-                            log_error "Final AnalysisRun state:"
-                            echo "$ar_json" | jq '.status'
+                            log_error ""
+                            log_error "=== Final AnalysisRun State ==="
+                            log_error "Phase: $ar_phase"
+                            log_error "Message: $ar_message"
+                            log_error "Metric Results:"
+                            echo "$ar_json" | jq '.status.metricResults' >&2
                             return 1
                         fi
                         
