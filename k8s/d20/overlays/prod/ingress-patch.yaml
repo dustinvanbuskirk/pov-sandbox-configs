@@ -1,19 +1,18 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: d20-dice-roller
+  name: d20-dice-roller  # Match your base ingress name
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: d20-prod.sandbox-1.sales-dev.codefresh.io
+    external-dns.alpha.kubernetes.io/hostname: "#{Project.Hostname}"
 spec:
-  ingressClassName: alb
   rules:
-  - host: d20-prod.sandbox-1.sales-dev.codefresh.io
+  - host: "#{Project.Hostname}"
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: d20-dice-roller
+            name: d20-dice-roller  # Your service name
             port:
               number: 80

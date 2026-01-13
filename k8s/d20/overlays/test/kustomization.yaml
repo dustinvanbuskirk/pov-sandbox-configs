@@ -11,7 +11,7 @@ resources:
 images:
   - name: d20-dice-roller
     newName: 336151728602.dkr.ecr.us-east-1.amazonaws.com/sandbox-1-d20  # Replace with your image repository
-    newTag: 0.0.0  # Replace with specific version tag
+    newTag: #{Octopus.Action.Package[YourPackageName].PackageVersion}  # Replace with specific version tag
 
 # Add environment-specific labels
 commonLabels:
