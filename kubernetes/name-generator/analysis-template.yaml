@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: curl-health-check
+  namespace: #{Kubernetes.Namespace}
+  labels:
+    app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
+    version: #{Octopus.Release.Number}
+spec:
+  metrics:
+  - name: curl-health-check
+    provider:
+      job:
+        metadata:
+          labels:
+            app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
+            version: #{Octopus.Release.Number}
+        spec:
+          backoffLimit: 1
+          template:
+            spec:
+              containers:
+              - name: curl-health-check
+                image: curlimages/curl:latest
+                command:
+                - /bin/sh
+                - -c
+                - |
+                  curl -I http://#{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}-preview.#{Kubernetes.Namespace}.svc.cluster.local
+                  status_code=$(curl --write-out "%{http_code}\n" --silent --output /dev/null "http://#{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}-preview.#{Kubernetes.Namespace}.svc.cluster.local");
+                  [ $status_code -eq 200 ]
+              restartPolicy: Never
