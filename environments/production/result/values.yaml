@@ -9,7 +9,7 @@ result:
   ingress:
     preview: 
       enabled: true
-      hostname: result-dev-preview.sandbox-1.sales-dev.codefresh.io
+      hostname: result-prod-preview.sandbox-1.sales-dev.codefresh.io
     hosts:
       - host: result-prod.sandbox-1.sales-dev.codefresh.io
         paths:
