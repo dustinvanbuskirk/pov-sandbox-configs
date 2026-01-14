@@ -17,5 +17,5 @@ maintainers:
     email: dvb@octopus.com
 dependencies:
   - name: result
-    version: 1.2.3
+    version: 1.2.4
     repository: file://../../../charts/result
