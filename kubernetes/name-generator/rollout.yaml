@@ -14,15 +14,6 @@ spec:
       app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
   strategy:
     canary:
-      analysis:
-        args:
-        - name: service-name
-          value: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}-preview
-        - name: canary-hash
-          valueFrom:
-            podTemplateHashValue: Latest
-        templates:
-        - templateName: curl-health-check
       canaryService: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}-preview
       stableService: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
       steps:
