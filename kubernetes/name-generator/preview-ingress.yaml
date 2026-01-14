@@ -1,0 +1,35 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}-preview
+  namespace: #{Kubernetes.Namespace}
+  annotations:
+    alb.ingress.kubernetes.io/certificate-arn: #{AWS.ACM.CertificateArn}
+    alb.ingress.kubernetes.io/group.name: #{ALB.GroupName}
+    alb.ingress.kubernetes.io/group.order: "20"
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}, {"HTTP":80}]'
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/target-type: ip
+    external-dns.alpha.kubernetes.io/hostname: #{Application.PreviewDomain}
+    rollouts.argoproj.io/managed-alb-annotations: '{"#{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}":["alb.ingress.kubernetes.io/actions.#{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}"]}'
+  labels:
+    app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}-preview
+spec:
+  ingressClassName: alb
+  rules:
+  - host: #{Application.PreviewDomain}
+    http:
+      paths:
+      - backend:
+          service:
+            name: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}-preview
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
