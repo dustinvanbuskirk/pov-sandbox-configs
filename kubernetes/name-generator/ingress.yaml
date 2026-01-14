@@ -20,7 +20,6 @@ metadata:
     rollouts.argoproj.io/managed-alb-annotations: '{"#{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}":["alb.ingress.kubernetes.io/actions.#{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}"]}'
   labels:
     app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
-    version: #{Octopus.Release.Number}
 spec:
   ingressClassName: alb
   rules:

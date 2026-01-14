@@ -5,7 +5,6 @@ metadata:
   namespace: #{Kubernetes.Namespace}
   labels:
     app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
-    version: #{Octopus.Release.Number}
 spec:
   replicas: #{Kubernetes.Replicas}
   revisionHistoryLimit: 3
@@ -37,7 +36,6 @@ spec:
     metadata:
       labels:
         app: #{Octopus.Project.Name | ToLower | Replace " " "-"}-#{Octopus.Environment.Name | ToLower}
-        version: #{Octopus.Release.Number}
     spec:
       containers:
       - name: #{Octopus.Project.Name | ToLower | Replace " " "-"}
