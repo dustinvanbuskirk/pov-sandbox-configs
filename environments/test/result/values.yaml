@@ -7,6 +7,9 @@ result:
     postgresqlUser: postgres
     postgresqlPassword: postgres
   ingress:
+    preview: 
+      enabled: true
+      hostname: result-dev-preview.sandbox-1.sales-dev.codefresh.io
     hosts:
       - host: result-test.sandbox-1.sales-dev.codefresh.io
         paths:

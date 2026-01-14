@@ -100,6 +100,31 @@ ingress:
     # TTL for DNS record (seconds)
     ttl: ""
     # Example: "300" for 5 minutes
+  
+  # ============================================
+  # Preview Ingress Configuration
+  # ============================================
+  preview:
+    enabled: false
+    
+    # Group order for preview ingress (should be different from main)
+    groupOrder: "21"
+    
+    # Hostname for preview DNS record
+    # If empty, defaults to: <release-name>-<chart-name>-preview.<ingress.domain>
+    hostname: ""
+    # Example: "result-dev-preview.sandbox-1.sales-dev.codefresh.io"
+    
+    # Custom hosts configuration (optional)
+    hosts: []
+    #  - host: result-preview.example.com
+    #    paths:
+    #      - path: /
+    #        pathType: Prefix
+    #        servicePort: 80
+    
+    # Additional custom annotations for preview ingress
+    annotations: {}
 
 # ============================================================================
 # Example Configurations
@@ -120,7 +145,26 @@ ingress:
 #     enabled: true
 #     hostname: result.example.com
 
-# Example 2: Custom host configuration
+# Example 2: With Preview Ingress
+# ----------------------------------------------------------
+# ingress:
+#   enabled: true
+#   className: alb
+#   domain: sandbox-1.sales-dev.codefresh.io
+#   alb:
+#     enabled: true
+#     groupName: cluster-shared-alb
+#     groupOrder: "20"
+#     certificateArn: arn:aws:acm:us-east-1:123456789012:certificate/wildcard
+#   externalDns:
+#     enabled: true
+#     hostname: result-dev.sandbox-1.sales-dev.codefresh.io
+#   preview:
+#     enabled: true
+#     groupOrder: "21"
+#     hostname: result-dev-preview.sandbox-1.sales-dev.codefresh.io
+
+# Example 3: Custom host configuration
 # ----------------------------------------------------------
 # ingress:
 #   enabled: true
@@ -139,7 +183,7 @@ ingress:
 #     enabled: true
 #     hostname: result.example.com
 
-# Example 3: Internal ALB (private)
+# Example 4: Internal ALB (private)
 # ----------------------------------------------------------
 # ingress:
 #   enabled: true
@@ -151,7 +195,7 @@ ingress:
 #     enabled: true
 #     hostname: result.internal.example.com
 
-# Example 4: Disable ingress (use Service only)
+# Example 5: Disable ingress (use Service only)
 # ----------------------------------------------------------
 # ingress:
 #   enabled: false
