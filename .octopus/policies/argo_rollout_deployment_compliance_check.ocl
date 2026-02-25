@@ -1,7 +1,7 @@
 name = "Argo Rollout Deployment Compliance Check"
 description = "This policy is to verify that any deployment to a Tenant marked with argocd Kubernetes Deployment Style require it use the DVB MFG - ArgoCD Deployment Process"
 violation_action = "block"
-violation_reason = "ArgoCD Deployments require the DVB MFG - ArgoCD Deployment Process to deploy"
+violation_reason = "Argo Rollout Deployments require the Argo Rollout Standard to deploy"
 
 conditions {
     rego = <<-EOT
