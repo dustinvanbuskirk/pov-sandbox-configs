@@ -1,0 +1,53 @@
+name = "ArgoCD Deployment Compliance Check"
+description = "This policy is to verify that any deployment to a Tenant marked with argocd Kubernetes Deployment Style require it use the DVB MFG - ArgoCD Deployment Process"
+violation_action = "block"
+violation_reason = "ArgoCD Deployments require the DVB MFG - ArgoCD Deployment Process to deploy"
+
+conditions {
+    rego = <<-EOT
+            package argocd_deployment_compliance_check
+            
+            import future.keywords.in
+            import future.keywords.if
+            
+            default result := {"allowed": false}
+            
+            # Find all steps that match the required process template
+            process_template_steps := [step |
+                some step in input.Steps
+                step.Source.Type == "Process Template"
+                step.Source.SlugOrId == "dvb-mfg-argocd-deployment"
+            ]
+            
+            # Check if the required process template exists and is enabled
+            result := {"allowed": true} if {
+                count(process_template_steps) > 0
+                every step in process_template_steps {
+                    step.Enabled
+                    not step.Id in input.SkippedSteps
+                }
+            }
+            
+            EOT
+}
+
+scope {
+    rego = <<-EOT
+            package argocd_deployment_compliance_check
+            
+            import future.keywords.in
+            
+            default evaluate := false
+            
+            # Scope to DVB Manufacturing space and tenants with argocd tag
+            evaluate if {
+                input.Space.Name == "DVB-Manufacturing"
+                has_argocd_tag
+            }
+            
+            has_argocd_tag if {
+                some tag in input.Tenant.Tags
+                tag == "Kubernetes Deployment Style/argocd"
+            }
+            EOT
+}
