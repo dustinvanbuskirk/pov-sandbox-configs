@@ -47,7 +47,7 @@ scope {
             
             has_argocd_tag if {
                 some tag in input.Tenant.Tags
-                tag == "Kubernetes Deployment Style/argocd"
+                tag == "Kubernetes Deployment Style/argo-rollout"
             }
             EOT
 }
