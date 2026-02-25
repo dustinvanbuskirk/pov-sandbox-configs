@@ -16,7 +16,7 @@ conditions {
             process_template_steps := [step |
                 some step in input.Steps
                 step.Source.Type == "Process Template"
-                step.Source.SlugOrId == "dvb-mfg-argocd-deployment"
+                step.Source.SlugOrId == "argo-rollout-standard"
             ]
             
             # Check if the required process template exists and is enabled
