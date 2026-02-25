@@ -33,7 +33,7 @@ conditions {
 
 scope {
     rego = <<-EOT
-            package argocd_deployment_compliance_check
+            package argo_rollout_deployment_compliance_check
             
             import future.keywords.in
             
