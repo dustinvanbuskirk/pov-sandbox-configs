@@ -1,2 +1,100 @@
 name = "ArgoCD Deployment"
-description = "Updates ArgoCD Application Container Image"
+description = "Centralized ArgoCD Deployment template for Manufacturing"
+
+icon {
+    color = "#C45317"
+    id = ""
+}
+
+parameter "Channels" {
+    display_settings = {
+        Octopus.ControlType = "Channels"
+    }
+    help_text = ""
+    label = ""
+}
+
+parameter "Protected Environments" {
+    display_settings = {
+        Octopus.ControlType = "Environments"
+    }
+    help_text = ""
+    label = ""
+}
+
+parameter "Worker Pool" {
+    display_settings = {
+        Octopus.ControlType = "WorkerPool"
+    }
+    help_text = ""
+    label = ""
+}
+
+parameter "Package" {
+    display_settings = {
+        Octopus.ControlType = "Package"
+    }
+    help_text = ""
+    label = ""
+}
+
+parameter "ArgoCD Tenant Tags" {
+    display_settings = {
+        Octopus.ControlType = "TenantTags"
+    }
+    help_text = ""
+    label = ""
+}
+
+parameter "Protected Tenant Tags" {
+    display_settings = {
+        Octopus.ControlType = "TenantTags"
+    }
+    help_text = ""
+    label = ""
+}
+
+step "manual-intervention-required" {
+    name = "Manual Intervention Required"
+
+    action {
+        action_type = "Octopus.Manual"
+        channels_variable = "#{Channels}"
+        environments_variable = "#{Protected Environments}"
+        properties = {
+            Octopus.Action.Manual.BlockConcurrentDeployments = "False"
+            Octopus.Action.Manual.Instructions = "Check with Manager to Approve"
+            Octopus.Action.Manual.ResponsibleTeamIds = "global/octopus-managers"
+        }
+        tenant_tags_variable = "#{Protected Tenant Tags}"
+    }
+}
+
+step "update-argo-cd-application-image-tags" {
+    name = "Update Argo CD Application Image Tags"
+
+    action {
+        action_type = "Octopus.ArgoCDUpdateImageTags"
+        channels_variable = "#{Channels}"
+        is_required = true
+        properties = {
+            Octopus.Action.ArgoCD.CommitMessageSummary = "Octopus Deploy updated image versions"
+            Octopus.Action.ArgoCD.CommitMethod = "DirectCommit"
+            Octopus.Action.ArgoCD.StepVerificationMethod = "CommitCreated"
+            Octopus.Action.ArgoCD.Sync.Mode = "AllEnvironments"
+        }
+        tenant_tags_variable = "#{ArgoCD Tenant Tags}"
+        worker_pool_variable = "#{Worker Pool}"
+
+        packages "Package" {
+            acquisition_location = "NotAcquired"
+            package_id = ""
+            properties = {
+                Extract = "false"
+                PackageParameterName = "Package"
+                Purpose = "DockerImageReference"
+                SelectionMode = "deferred"
+            }
+        }
+    }
+}
