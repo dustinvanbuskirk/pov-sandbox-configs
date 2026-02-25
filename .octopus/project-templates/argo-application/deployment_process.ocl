@@ -1,5 +1,14 @@
-process_template "run-a-process-template" {
-    name = "Run a Process Template"
-    process_template_slug = "argo-rollout-standard"
-    version_mask = "1.0.X"
+step "update-argo-cd-application-image-tags" {
+    name = "Update Argo CD Application Image Tags"
+
+    action {
+        action_type = "Octopus.ArgoCDUpdateImageTags"
+        properties = {
+            Octopus.Action.ArgoCD.CommitMessageSummary = "Octopus Deploy updated image versions"
+            Octopus.Action.ArgoCD.CommitMethod = "DirectCommit"
+            Octopus.Action.ArgoCD.StepVerificationMethod = "CommitCreated"
+            Octopus.Action.ArgoCD.Sync.Mode = "AllEnvironments"
+        }
+        worker_pool_variable = ""
+    }
 }
