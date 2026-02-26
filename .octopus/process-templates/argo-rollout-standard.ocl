@@ -314,6 +314,8 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
     action {
         action_type = "Octopus.Script"
         properties = {
+            Octopus.Action.AutoRetry.MaximumCount = "3"
+            Octopus.Action.AutoRetry.MinimumBackoff = "60"
             Octopus.Action.RunOnServer = "true"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 #!/bin/bash
