@@ -81,13 +81,14 @@ step "update-argo-cd-application-image-tags" {
             Octopus.Action.ArgoCD.CommitMessageSummary = "Octopus Deploy updated image versions"
             Octopus.Action.ArgoCD.CommitMethod = "DirectCommit"
             Octopus.Action.ArgoCD.StepVerificationMethod = "CommitCreated"
-            Octopus.Action.ArgoCD.Sync.Mode = "AllEnvironments"
+            Octopus.Action.ArgoCD.Sync.Mode = "Disabled"
         }
         tenant_tags_variable = "#{ArgoCD Tenant Tags}"
         worker_pool_variable = "#{Worker Pool}"
 
         packages "Package" {
             acquisition_location = "NotAcquired"
+            feed = "octopus-server-built-in"
             package_id = ""
             properties = {
                 Extract = "false"
