@@ -49,12 +49,11 @@ step "rollout-details" {
         properties = {
             Octopus.Action.RunOnServer = "true"
             Octopus.Action.Script.ScriptBody = <<-EOT
-                echo "Ingress Name: $(get_octopusvariable \"IngressName\")"
-                echo "Rollout Name: $(get_octopusvariable \"RolloutName\")"
-                echo "Rollout Namespace: $(get_octopusvariable \"RolloutNamespace\")"
-                echo "Target Tags: $(get_octopusvariable \"TargetTags\")"
-                echo "Ingress Name: $(get_octopusvariable \"IngressName\")"
-                echo "Worker Pool: $(get_octopusvariable \"WorkerPool\")"
+                echo "#{RolloutName}"
+                echo "#{RolloutNamespace}"
+                echo "#{IngressName}"
+                echo "#{TargetTags}"
+                echo "#{WorkerPool}"
                 EOT
             Octopus.Action.Script.ScriptSource = "Inline"
             Octopus.Action.Script.Syntax = "Bash"
