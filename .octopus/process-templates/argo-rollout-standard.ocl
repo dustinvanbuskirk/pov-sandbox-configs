@@ -41,6 +41,29 @@ parameter "IngressName" {
     label = ""
 }
 
+step "rollout-details" {
+    name = "Rollout Details"
+
+    action {
+        action_type = "Octopus.Script"
+        properties = {
+            Octopus.Action.RunOnServer = "true"
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                echo "Ingress Name: $(get_octopusvariable \"IngressName\")"
+                echo "Rollout Name: $(get_octopusvariable \"RolloutName\")"
+                echo "Rollout Namespace: $(get_octopusvariable \"RolloutNamespace\")"
+                echo "Target Tags: $(get_octopusvariable \"TargetTags\")"
+                echo "Ingress Name: $(get_octopusvariable \"IngressName\")"
+                echo "Worker Pool: $(get_octopusvariable \"WorkerPool\")"
+                EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "Bash"
+            OctopusUseBundledTooling = "False"
+        }
+        worker_pool_variable = "#{Worker Pool}"
+    }
+}
+
 step "increase-traffic-to-20" {
     name = "Increase Traffic to 20%"
 
