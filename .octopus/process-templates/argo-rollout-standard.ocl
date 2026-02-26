@@ -1,14 +1,6 @@
 name = "Argo Rollout [Canary]"
 description = "Performs Argo Rollout"
 
-parameter "Target Tags" {
-    display_settings = {
-        Octopus.ControlType = "TargetTags"
-    }
-    help_text = "This will be sourced from Project's Target Tags"
-    label = ""
-}
-
 parameter "Worker Pool" {
     display_settings = {
         Octopus.ControlType = "WorkerPool"
@@ -41,6 +33,22 @@ parameter "IngressName" {
     label = ""
 }
 
+parameter "Tenant Tags" {
+    display_settings = {
+        Octopus.ControlType = "TenantTags"
+    }
+    help_text = ""
+    label = ""
+}
+
+parameter "Target Tags" {
+    display_settings = {
+        Octopus.ControlType = "TargetTags"
+    }
+    help_text = ""
+    label = ""
+}
+
 step "rollout-details" {
     name = "Rollout Details"
 
@@ -59,6 +67,7 @@ step "rollout-details" {
             Octopus.Action.Script.Syntax = "Bash"
             OctopusUseBundledTooling = "False"
         }
+        tenant_tags_variable = "#{Tenant Tags}"
         worker_pool_variable = "#{Worker Pool}"
     }
 }
@@ -73,6 +82,7 @@ step "increase-traffic-to-20" {
             Octopus.Action.Manual.Instructions = "Increases Traffic to 20%"
             Octopus.Action.Manual.ResponsibleTeamIds = "global/octopus-managers"
         }
+        tenant_tags_variable = "#{Tenant Tags}"
     }
 }
 
@@ -260,6 +270,7 @@ step "argo-rollouts-promote-20" {
             Octopus.Action.Script.ScriptSource = "Inline"
             Octopus.Action.Script.Syntax = "PowerShell"
         }
+        tenant_tags_variable = "#{Tenant Tags}"
         worker_pool_variable = "#{Worker Pool}"
 
         community_action_template_snapshot {
@@ -852,6 +863,7 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
             Octopus.Action.Script.Syntax = "Bash"
             OctopusUseBundledTooling = "False"
         }
+        tenant_tags_variable = "#{Tenant Tags}"
         worker_pool_variable = "#{Worker Pool}"
     }
 }
@@ -1040,6 +1052,7 @@ step "argo-rollouts-promote-40" {
             Octopus.Action.Script.ScriptSource = "Inline"
             Octopus.Action.Script.Syntax = "PowerShell"
         }
+        tenant_tags_variable = "#{Tenant Tags}"
         worker_pool_variable = "#{Worker Pool}"
 
         community_action_template_snapshot {
@@ -1260,6 +1273,7 @@ step "argo-rollouts-promote-60" {
             Octopus.Action.Script.ScriptSource = "Inline"
             Octopus.Action.Script.Syntax = "PowerShell"
         }
+        tenant_tags_variable = "#{Tenant Tags}"
         worker_pool_variable = "#{Worker Pool}"
 
         community_action_template_snapshot {
@@ -1480,6 +1494,7 @@ step "argo-rollouts-promote-80" {
             Octopus.Action.Script.ScriptSource = "Inline"
             Octopus.Action.Script.Syntax = "PowerShell"
         }
+        tenant_tags_variable = "#{Tenant Tags}"
         worker_pool_variable = "#{Worker Pool}"
 
         community_action_template_snapshot {
@@ -1526,6 +1541,7 @@ step "increase-traffic-to-100" {
             Octopus.Action.Manual.Instructions = "Increases Traffic to 100%"
             Octopus.Action.Manual.ResponsibleTeamIds = "global/octopus-managers"
         }
+        tenant_tags_variable = "#{Tenant Tags}"
     }
 }
 
@@ -1713,6 +1729,7 @@ step "argo-rollouts-promote-100" {
             Octopus.Action.Script.ScriptSource = "Inline"
             Octopus.Action.Script.Syntax = "PowerShell"
         }
+        tenant_tags_variable = "#{Tenant Tags}"
         worker_pool_variable = "#{Worker Pool}"
 
         community_action_template_snapshot {
