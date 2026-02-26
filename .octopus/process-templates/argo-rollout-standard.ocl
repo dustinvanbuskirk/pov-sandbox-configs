@@ -41,12 +41,11 @@ parameter "Tenant Tags" {
     label = ""
 }
 
-parameter "Nothing" {
+parameter "Target Tags" {
     display_settings = {
         Octopus.ControlType = "TargetTags"
     }
     help_text = ""
-    is_optional = true
     label = ""
 }
 
@@ -61,8 +60,9 @@ step "rollout-details" {
                 echo "#{RolloutName}"
                 echo "#{RolloutNamespace}"
                 echo "#{IngressName}"
-                echo "#{TargetTags}"
-                echo "#{WorkerPool}"
+                echo "#{Target Tags}"
+                echo "#{Worker Pool}"
+                echo "#{Tenant Tags}"
                 EOT
             Octopus.Action.Script.ScriptSource = "Inline"
             Octopus.Action.Script.Syntax = "Bash"
@@ -90,7 +90,7 @@ step "increase-traffic-to-20" {
 step "argo-rollouts-promote-20" {
     name = "Argo - Rollouts Promote (20%)"
     properties = {
-        Octopus.Action.TargetRoles = "#{Nothing}"
+        Octopus.Action.TargetRoles = "#{Target Tags}"
     }
 
     action {
@@ -872,7 +872,7 @@ step "wait-for-traffic-shift-and-testing-to-complete" {
 step "argo-rollouts-promote-40" {
     name = "Argo - Rollouts Promote (40%)"
     properties = {
-        Octopus.Action.TargetRoles = "#{Nothing}"
+        Octopus.Action.TargetRoles = "#{Target Tags}"
     }
 
     action {
@@ -1093,7 +1093,7 @@ step "argo-rollouts-promote-40" {
 step "argo-rollouts-promote-60" {
     name = "Argo - Rollouts Promote (60%)"
     properties = {
-        Octopus.Action.TargetRoles = "#{Nothing}"
+        Octopus.Action.TargetRoles = "#{Target Tags}"
     }
 
     action {
@@ -1314,7 +1314,7 @@ step "argo-rollouts-promote-60" {
 step "argo-rollouts-promote-80" {
     name = "Argo - Rollouts Promote (80%)"
     properties = {
-        Octopus.Action.TargetRoles = "#{Nothing}"
+        Octopus.Action.TargetRoles = "#{Target Tags}"
     }
 
     action {
@@ -1549,7 +1549,7 @@ step "increase-traffic-to-100" {
 step "argo-rollouts-promote-100" {
     name = "Argo - Rollouts Promote (100%)"
     properties = {
-        Octopus.Action.TargetRoles = "#{Nothing}"
+        Octopus.Action.TargetRoles = "#{Target Tags}"
     }
 
     action {
