@@ -2,7 +2,7 @@ name = "ArgoCD Deployment"
 description = "Centralized ArgoCD Deployment template for Manufacturing"
 
 icon {
-    color = "#757575"
+    color = "#1A77CA"
     id = ""
 }
 
