@@ -54,6 +54,16 @@ parameter "Protected Tenant Tags" {
     label = ""
 }
 
+parameter "OctopusBypassDeploymentMutex" {
+    display_settings = {
+        Octopus.ControlType = "SingleLineText"
+    }
+    help_text = ""
+    label = ""
+
+    value "False" {}
+}
+
 step "manual-intervention-required" {
     name = "Manual Intervention Required"
 
@@ -61,7 +71,6 @@ step "manual-intervention-required" {
         action_type = "Octopus.Manual"
         channels_variable = "#{Channels}"
         environments_variable = "#{Protected Environments}"
-        is_disabled = true
         properties = {
             Octopus.Action.Manual.BlockConcurrentDeployments = "False"
             Octopus.Action.Manual.Instructions = "Check with Manager to Approve"
@@ -83,6 +92,8 @@ step "update-argo-cd-application-image-tags" {
             Octopus.Action.ArgoCD.CommitMethod = "DirectCommit"
             Octopus.Action.ArgoCD.StepVerificationMethod = "CommitCreated"
             Octopus.Action.ArgoCD.Sync.Mode = "Disabled"
+            Octopus.Action.AutoRetry.MaximumCount = "3"
+            Octopus.Action.AutoRetry.MinimumBackoff = "15"
         }
         tenant_tags_variable = "#{ArgoCD Tenant Tags}"
         worker_pool_variable = "#{Worker Pool}"
