@@ -54,6 +54,16 @@ parameter "Protected Tenant Tags" {
     label = ""
 }
 
+parameter "OctopusBypassDeploymentMutex" {
+    display_settings = {
+        Octopus.ControlType = "SingleLineText"
+    }
+    help_text = ""
+    label = ""
+
+    value "False" {}
+}
+
 step "manual-intervention-required" {
     name = "Manual Intervention Required"
 
