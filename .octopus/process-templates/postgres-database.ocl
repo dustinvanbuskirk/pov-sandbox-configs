@@ -1,6 +1,11 @@
 name = "Postgres Database"
 description = ""
 
+icon {
+    color = "#1A77CA"
+    id = "database"
+}
+
 parameter "Target Tags" {
     display_settings = {
         Octopus.ControlType = "TargetTags"
