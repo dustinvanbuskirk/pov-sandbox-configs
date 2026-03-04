@@ -2,7 +2,7 @@ name = "Virtual Machine"
 description = ""
 
 icon {
-    color = "#1A77CA"
+    color = "#557999"
     id = "hdd"
 }
 
