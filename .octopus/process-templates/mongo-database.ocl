@@ -1,2 +1,32 @@
 name = "Mongo Database"
 description = ""
+
+parameter "Target Tags" {
+    display_settings = {
+        Octopus.ControlType = "TargetTags"
+    }
+    help_text = ""
+    label = ""
+}
+
+step "deploy-mongo-db" {
+    name = "Deploy Mongo DB"
+    properties = {
+        Octopus.Action.TargetRoles = "#{Target Tags}"
+    }
+
+    action {
+        action_type = "Octopus.Script"
+        properties = {
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                echo "Successfully Deployed Mongo"
+                exit 0
+                EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "Bash"
+            OctopusUseBundledTooling = "False"
+        }
+        worker_pool_variable = ""
+    }
+}
