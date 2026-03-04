@@ -1,2 +1,32 @@
 name = "Cloud SQL"
 description = ""
+
+parameter "Target Tags" {
+    display_settings = {
+        Octopus.ControlType = "TargetTags"
+    }
+    help_text = ""
+    label = ""
+}
+
+step "deploy-cloud-sql" {
+    name = "Deploy Cloud SQL"
+    properties = {
+        Octopus.Action.TargetRoles = "#{Target Tags}"
+    }
+
+    action {
+        action_type = "Octopus.Script"
+        properties = {
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                echo "Successfully Deployed to Cloud SQL!"
+                exit 0
+                EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "PowerShell"
+            OctopusUseBundledTooling = "False"
+        }
+        worker_pool_variable = ""
+    }
+}
