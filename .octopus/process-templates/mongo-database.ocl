@@ -1,5 +1,5 @@
 name = "Mongo Database"
-description = ""
+description = "Deploy to Mongo Database"
 
 parameter "Target Tags" {
     display_settings = {
