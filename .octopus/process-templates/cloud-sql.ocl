@@ -1,6 +1,11 @@
 name = "Cloud SQL"
 description = "Deploy to Cloud SQL"
 
+icon {
+    color = "#1A77CA"
+    id = "cloud"
+}
+
 parameter "Target Tags" {
     display_settings = {
         Octopus.ControlType = "TargetTags"
