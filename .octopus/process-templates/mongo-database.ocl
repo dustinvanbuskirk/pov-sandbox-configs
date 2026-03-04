@@ -1,6 +1,11 @@
 name = "Mongo Database"
 description = "Deploy to Mongo Database"
 
+icon {
+    color = "#00874D"
+    id = "database"
+}
+
 parameter "Target Tags" {
     display_settings = {
         Octopus.ControlType = "TargetTags"
