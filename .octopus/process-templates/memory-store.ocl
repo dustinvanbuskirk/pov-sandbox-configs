@@ -1,2 +1,32 @@
 name = "Memory Store"
 description = "Deploy to Memory Store"
+
+parameter "Target Tags" {
+    display_settings = {
+        Octopus.ControlType = "TargetTags"
+    }
+    help_text = ""
+    label = ""
+}
+
+step "deploy-to-memory-store" {
+    name = "Deploy to Memory Store"
+    properties = {
+        Octopus.Action.TargetRoles = "#{Target Tags}"
+    }
+
+    action {
+        action_type = "Octopus.Script"
+        properties = {
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                echo "Successfully Deployed to Memory Store!"
+                exit 0
+                EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "PowerShell"
+            OctopusUseBundledTooling = "False"
+        }
+        worker_pool_variable = ""
+    }
+}
