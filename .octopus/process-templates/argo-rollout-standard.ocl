@@ -1,6 +1,11 @@
 name = "Argo Rollout [Canary]"
 description = "Performs Argo Rollout"
 
+icon {
+    color = "#D63D3D"
+    id = "dove"
+}
+
 parameter "Worker Pool" {
     display_settings = {
         Octopus.ControlType = "WorkerPool"
