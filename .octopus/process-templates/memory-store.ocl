@@ -1,6 +1,11 @@
 name = "Memory Store"
 description = "Deploy to Memory Store"
 
+icon {
+    color = "#1A77CA"
+    id = "stack-exchange"
+}
+
 parameter "Target Tags" {
     display_settings = {
         Octopus.ControlType = "TargetTags"
