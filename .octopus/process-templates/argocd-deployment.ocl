@@ -2,8 +2,8 @@ name = "ArgoCD Deployment"
 description = "Centralized ArgoCD Deployment template for Manufacturing"
 
 icon {
-    color = "#1A77CA"
-    id = ""
+    color = "#D63D3D"
+    id = "code-branch"
 }
 
 parameter "Channels" {
