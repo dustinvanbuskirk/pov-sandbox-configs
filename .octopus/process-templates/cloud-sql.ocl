@@ -1,5 +1,5 @@
 name = "Cloud SQL"
-description = ""
+description = "Deploy to Cloud SQL"
 
 parameter "Target Tags" {
     display_settings = {
