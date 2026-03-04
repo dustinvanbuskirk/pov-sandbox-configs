@@ -1,6 +1,11 @@
 name = "Virtual Machine"
 description = ""
 
+icon {
+    color = "#1A77CA"
+    id = "hdd"
+}
+
 parameter "Target Tags" {
     display_settings = {
         Octopus.ControlType = "TargetTags"
