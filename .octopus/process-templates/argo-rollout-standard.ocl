@@ -78,6 +78,183 @@ step "rollout-details" {
     }
 }
 
+step "wait-for-argocd-to-sync-release" {
+    name = "Wait For - ArgoCD to Sync Release"
+
+    action {
+        action_type = "Octopus.Script"
+        properties = {
+            Octopus.Action.RunOnServer = "true"
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                import subprocess
+                import json
+                import time
+                import sys
+                import os
+                
+                # ---------------------------------------------------------------------------
+                # Octopus Deploy variable helpers
+                # ---------------------------------------------------------------------------
+                
+                def get_octopus_variable(name: str, default: str = "") -> str:
+                    """
+                    In an Octopus script step, variables are injected as environment variables.
+                    The helper function get_octopusvariable() is also available in the step
+                    runner, but using os.environ works universally for all script runners.
+                    Variable names like 'My.Variable.Name' become 'MY_VARIABLE_NAME' in env.
+                    """
+                    env_key = name.replace(".", "_").replace(" ", "_").upper()
+                    return os.environ.get(env_key, default)
+                
+                def fail(message: str):
+                    print(f"\n[FATAL] {message}", file=sys.stderr)
+                    sys.exit(1)
+                
+                # ---------------------------------------------------------------------------
+                # Configuration — map these to your Octopus project/system variables
+                # ---------------------------------------------------------------------------
+                
+                # The release version to verify — typically Octopus.Release.Number
+                RAW_RELEASE_VERSION     = get_octopus_variable("Octopus.Release.Number")
+                
+                # The Argo Rollout resource name and namespace
+                ROLLOUT_NAME            = get_octopus_variable("Rollout.Name")           # e.g. photo-uat-mtb
+                ROLLOUT_NAMESPACE       = get_octopus_variable("Rollout.Namespace")      # e.g. photo-uat-mtb
+                
+                # How long to wait (seconds) after the version is confirmed
+                POST_VERIFY_WAIT_SECS   = int(get_octopus_variable("Rollout.PostVerifyWaitSeconds", "30"))
+                
+                # Retry settings
+                RETRY_INTERVAL_SECS     = int(get_octopus_variable("Rollout.RetryIntervalSeconds", "15"))
+                MAX_RETRIES             = int(get_octopus_variable("Rollout.MaxRetries", "40"))
+                
+                # ---------------------------------------------------------------------------
+                # Validate inputs
+                # ---------------------------------------------------------------------------
+                
+                if not RAW_RELEASE_VERSION:
+                    fail("Octopus.Release.Number is empty. Cannot determine target version.")
+                if not ROLLOUT_NAME:
+                    fail("Rollout.Name variable is empty.")
+                if not ROLLOUT_NAMESPACE:
+                    fail("Rollout.Namespace variable is empty.")
+                
+                def normalize_version(v: str) -> str:
+                    """Strip a leading 'v' or 'V' for a consistent comparison."""
+                    return v.strip().lstrip("vV")
+                
+                TARGET_VERSION = normalize_version(RAW_RELEASE_VERSION)
+                
+                print("=" * 60)
+                print("Argo Rollout Version Verifier")
+                print("=" * 60)
+                print(f"  Rollout name      : {ROLLOUT_NAME}")
+                print(f"  Namespace         : {ROLLOUT_NAMESPACE}")
+                print(f"  Target version    : {TARGET_VERSION}  (raw: {RAW_RELEASE_VERSION})")
+                print(f"  Post-verify wait  : {POST_VERIFY_WAIT_SECS}s")
+                print(f"  Retry interval    : {RETRY_INTERVAL_SECS}s")
+                print(f"  Max retries       : {MAX_RETRIES}")
+                print("=" * 60)
+                
+                # ---------------------------------------------------------------------------
+                # Polling loop
+                # ---------------------------------------------------------------------------
+                
+                def get_rollout_version() -> tuple[str | None, str | None]:
+                    """
+                    Fetch the Rollout resource via kubectl and return (version, error_msg).
+                    Version is read from .metadata.labels.version.
+                    """
+                    cmd = [
+                        "kubectl", "get", "rollout", ROLLOUT_NAME,
+                        "-n", ROLLOUT_NAMESPACE,
+                        "-o", "json"
+                    ]
+                    try:
+                        result = subprocess.run(
+                            cmd,
+                            capture_output=True,
+                            text=True,
+                            timeout=30
+                        )
+                    except subprocess.TimeoutExpired:
+                        return None, "kubectl command timed out after 30s"
+                    except FileNotFoundError:
+                        return None, "kubectl not found on PATH"
+                
+                    if result.returncode != 0:
+                        stderr = result.stderr.strip()
+                        return None, f"kubectl exited {result.returncode}: {stderr}"
+                
+                    try:
+                        rollout = json.loads(result.stdout)
+                    except json.JSONDecodeError as e:
+                        return None, f"Failed to parse kubectl JSON output: {e}"
+                
+                    version = (
+                        rollout
+                        .get("metadata", {})
+                        .get("labels", {})
+                        .get("version")
+                    )
+                
+                    if version is None:
+                        return None, "Label 'version' not found in rollout metadata.labels"
+                
+                    return version, None
+                
+                
+                attempt = 0
+                while attempt < MAX_RETRIES:
+                    attempt += 1
+                    print(f"\n[Attempt {attempt}/{MAX_RETRIES}] Checking rollout version...")
+                
+                    current_raw, error = get_rollout_version()
+                
+                    if error:
+                        print(f"  [WARN] Could not retrieve rollout: {error}")
+                    else:
+                        current_normalized = normalize_version(current_raw)
+                        print(f"  Current version : {current_raw}  (normalized: {current_normalized})")
+                        print(f"  Target version  : {TARGET_VERSION}")
+                
+                        if current_normalized == TARGET_VERSION:
+                            print(f"\n[OK] Version match confirmed: {current_raw}")
+                            break
+                        else:
+                            print(f"  [INFO] Version mismatch — waiting {RETRY_INTERVAL_SECS}s before retry...")
+                
+                    if attempt < MAX_RETRIES:
+                        time.sleep(RETRY_INTERVAL_SECS)
+                else:
+                    fail(
+                        f"Version '{TARGET_VERSION}' was not observed on rollout '{ROLLOUT_NAME}' "
+                        f"after {MAX_RETRIES} attempts ({MAX_RETRIES * RETRY_INTERVAL_SECS}s total)."
+                    )
+                
+                # ---------------------------------------------------------------------------
+                # Post-verification wait
+                # ---------------------------------------------------------------------------
+                
+                print(f"\n[INFO] Waiting {POST_VERIFY_WAIT_SECS}s post-verification "
+                      f"(Rollout.PostVerifyWaitSeconds)...")
+                
+                for remaining in range(POST_VERIFY_WAIT_SECS, 0, -5):
+                    print(f"  ...{remaining}s remaining")
+                    time.sleep(min(5, remaining))
+                
+                print("\n[DONE] Rollout version verified and post-wait complete.")
+                sys.exit(0)
+                EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "Python"
+            OctopusUseBundledTooling = "False"
+        }
+        tenant_tags_variable = "#{Tenant Tags}"
+        worker_pool_variable = "#{Worker Pool}"
+    }
+}
+
 step "argo-rollouts-promote-20" {
     name = "Argo - Rollouts Promote (20%)"
     properties = {
