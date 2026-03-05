@@ -54,6 +54,39 @@ parameter "Target Tags" {
     label = ""
 }
 
+parameter "Rollout.PostVerifyWaitSeconds" {
+    display_settings = {
+        Octopus.ControlType = "SingleLineText"
+    }
+    help_text = ""
+    is_optional = true
+    label = ""
+
+    value "5" {}
+}
+
+parameter "Rollout.RetryIntervalSeconds" {
+    display_settings = {
+        Octopus.ControlType = "SingleLineText"
+    }
+    help_text = ""
+    is_optional = true
+    label = ""
+
+    value "5" {}
+}
+
+parameter "Rollout.MaxRetries" {
+    display_settings = {
+        Octopus.ControlType = "SingleLineText"
+    }
+    help_text = ""
+    is_optional = true
+    label = ""
+
+    value "10" {}
+}
+
 step "rollout-details" {
     name = "Rollout Details"
 
@@ -86,11 +119,39 @@ step "wait-for-argocd-to-sync-release" {
         properties = {
             Octopus.Action.RunOnServer = "true"
             Octopus.Action.Script.ScriptBody = <<-EOT
+                
                 import subprocess
-                import json
-                import time
                 import sys
+                import time
                 import os
+                
+                # ---------------------------------------------------------------------------
+                # Runtime dependency installation
+                # ---------------------------------------------------------------------------
+                
+                result = subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "kubernetes", "--quiet"],
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                filtered = [l for l in result.stderr.splitlines() if "root-user" not in l and "venv" not in l]
+                if filtered:
+                    print("\n".join(filtered), file=sys.stderr)
+                
+                # ---------------------------------------------------------------------------
+                # Deferred imports (available after runtime install)
+                # ---------------------------------------------------------------------------
+                
+                from kubernetes import client, config
+                from kubernetes.client.rest import ApiException
+                
+                # ---------------------------------------------------------------------------
+                # Deferred imports (available after runtime install)
+                # ---------------------------------------------------------------------------
+                
+                from kubernetes import client, config
+                from kubernetes.client.rest import ApiException
+                
                 
                 # ---------------------------------------------------------------------------
                 # Octopus Deploy variable helpers
@@ -118,8 +179,8 @@ step "wait-for-argocd-to-sync-release" {
                 RAW_RELEASE_VERSION     = get_octopus_variable("Octopus.Release.Number")
                 
                 # The Argo Rollout resource name and namespace
-                ROLLOUT_NAME            = get_octopus_variable("Rollout.Name")           # e.g. photo-uat-mtb
-                ROLLOUT_NAMESPACE       = get_octopus_variable("Rollout.Namespace")      # e.g. photo-uat-mtb
+                ROLLOUT_NAME            = get_octopus_variable("RolloutName")           # e.g. photo-uat-mtb
+                ROLLOUT_NAMESPACE       = get_octopus_variable("RolloutNameSpace")       # e.g. photo-uat-mtb
                 
                 # How long to wait (seconds) after the version is confirmed
                 POST_VERIFY_WAIT_SECS   = int(get_octopus_variable("Rollout.PostVerifyWaitSeconds", "30"))
@@ -135,9 +196,9 @@ step "wait-for-argocd-to-sync-release" {
                 if not RAW_RELEASE_VERSION:
                     fail("Octopus.Release.Number is empty. Cannot determine target version.")
                 if not ROLLOUT_NAME:
-                    fail("Rollout.Name variable is empty.")
+                    fail("RolloutName variable is empty.")
                 if not ROLLOUT_NAMESPACE:
-                    fail("Rollout.Namespace variable is empty.")
+                    fail("RolloutNameSpace variable is empty.")
                 
                 def normalize_version(v: str) -> str:
                     """Strip a leading 'v' or 'V' for a consistent comparison."""
