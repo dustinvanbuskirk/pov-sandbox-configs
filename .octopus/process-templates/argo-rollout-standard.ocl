@@ -78,20 +78,6 @@ step "rollout-details" {
     }
 }
 
-step "increase-traffic-to-20" {
-    name = "Increase Traffic to 20%"
-
-    action {
-        action_type = "Octopus.Manual"
-        properties = {
-            Octopus.Action.Manual.BlockConcurrentDeployments = "False"
-            Octopus.Action.Manual.Instructions = "Increases Traffic to 20%"
-            Octopus.Action.Manual.ResponsibleTeamIds = "global/octopus-managers"
-        }
-        tenant_tags_variable = "#{Tenant Tags}"
-    }
-}
-
 step "argo-rollouts-promote-20" {
     name = "Argo - Rollouts Promote (20%)"
     properties = {
@@ -1536,20 +1522,6 @@ step "argo-rollouts-promote-80" {
                 default_value = "False"
             }
         }
-    }
-}
-
-step "increase-traffic-to-100" {
-    name = "Increase Traffic to 100%"
-
-    action {
-        action_type = "Octopus.Manual"
-        properties = {
-            Octopus.Action.Manual.BlockConcurrentDeployments = "False"
-            Octopus.Action.Manual.Instructions = "Increases Traffic to 100%"
-            Octopus.Action.Manual.ResponsibleTeamIds = "global/octopus-managers"
-        }
-        tenant_tags_variable = "#{Tenant Tags}"
     }
 }
 
