@@ -64,6 +64,14 @@ parameter "OctopusBypassDeploymentMutex" {
     value "False" {}
 }
 
+parameter "Target Tags" {
+    display_settings = {
+        Octopus.ControlType = "TargetTags"
+    }
+    help_text = ""
+    label = ""
+}
+
 step "manual-intervention-required" {
     name = "Manual Intervention Required"
 
