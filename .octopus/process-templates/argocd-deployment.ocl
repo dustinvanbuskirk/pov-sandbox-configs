@@ -71,6 +71,7 @@ step "manual-intervention-required" {
         action_type = "Octopus.Manual"
         channels_variable = "#{Channels}"
         environments_variable = "#{Protected Environments}"
+        is_disabled = true
         properties = {
             Octopus.Action.Manual.BlockConcurrentDeployments = "False"
             Octopus.Action.Manual.Instructions = "Check with Manager to Approve"
