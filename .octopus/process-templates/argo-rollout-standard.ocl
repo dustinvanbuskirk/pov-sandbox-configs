@@ -87,14 +87,6 @@ parameter "Rollout.MaxRetries" {
     value "10" {}
 }
 
-parameter "ReleaseNumber" {
-    display_settings = {
-        Octopus.ControlType = "SingleLineText"
-    }
-    help_text = ""
-    label = ""
-}
-
 step "rollout-details" {
     name = "Rollout Details"
 
@@ -130,7 +122,6 @@ step "wait-for-argocd-to-sync-release" {
                 import subprocess
                 import sys
                 import time
-                import os
                 
                 # ---------------------------------------------------------------------------
                 # Runtime dependency installation
@@ -153,40 +144,27 @@ step "wait-for-argocd-to-sync-release" {
                 from kubernetes.client.rest import ApiException
                 
                 # ---------------------------------------------------------------------------
-                # Octopus Deploy variable helpers
+                # Configuration — Octopus substitutes #{} variables into the script at runtime
                 # ---------------------------------------------------------------------------
-                
-                def get_octopus_variable(name: str, default: str = "") -> str:
-                    env_key = name.replace(".", "_").replace(" ", "_").upper()
-                    return os.environ.get(env_key, default)
                 
                 def fail(message: str):
                     print(f"\n[FATAL] {message}", file=sys.stderr)
                     sys.exit(1)
                 
-                # ---------------------------------------------------------------------------
-                # Configuration — mapped to Octopus project/system variables
-                # ---------------------------------------------------------------------------
+                def octopus_with_default(value: str, default: str) -> str:
+                    """If Octopus didn't substitute the variable, the raw #{} token remains — fall back to default."""
+                    return default if value.startswith("#{") else value
                 
-                RAW_RELEASE_VERSION   = get_octopus_variable("ReleaseNumber")
-                ROLLOUT_NAME          = get_octopus_variable("RolloutName")
-                ROLLOUT_NAMESPACE     = get_octopus_variable("RolloutNameSpace")
-                POST_VERIFY_WAIT_SECS = int(get_octopus_variable("Rollout.PostVerifyWaitSeconds", "30"))
-                RETRY_INTERVAL_SECS   = int(get_octopus_variable("Rollout.RetryIntervalSeconds", "15"))
-                MAX_RETRIES           = int(get_octopus_variable("Rollout.MaxRetries", "40"))
+                RAW_RELEASE_VERSION   = "#{ReleaseNumber}"
+                ROLLOUT_NAME          = "#{RolloutName}"
+                ROLLOUT_NAMESPACE     = "#{RolloutNameSpace}"
+                POST_VERIFY_WAIT_SECS = int(octopus_with_default("#{Rollout.PostVerifyWaitSeconds}", "30"))
+                RETRY_INTERVAL_SECS   = int(octopus_with_default("#{Rollout.RetryIntervalSeconds}", "15"))
+                MAX_RETRIES           = int(octopus_with_default("#{Rollout.MaxRetries}", "40"))
                 
                 # ---------------------------------------------------------------------------
                 # Validate inputs
                 # ---------------------------------------------------------------------------
-                
-                print("\n[DEBUG] All environment variables:")
-                for k, v in sorted(os.environ.items()):
-                    print(f"  {k} = {v}")
-                
-                print(f"\n[DEBUG] Variable lookups:")
-                print(f"  ReleaseNumber     -> env key: RELEASENUMBER     -> '{RAW_RELEASE_VERSION}'")
-                print(f"  RolloutName       -> env key: ROLLOUTNAME       -> '{ROLLOUT_NAME}'")
-                print(f"  RolloutNameSpace  -> env key: ROLLOUTNAMESPACE  -> '{ROLLOUT_NAMESPACE}'")
                 
                 if not RAW_RELEASE_VERSION:
                     fail("ReleaseNumber variable is empty. Cannot determine target version.")
