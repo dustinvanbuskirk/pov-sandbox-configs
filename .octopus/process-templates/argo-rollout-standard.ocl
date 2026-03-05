@@ -62,7 +62,7 @@ parameter "Rollout.PostVerifyWaitSeconds" {
     is_optional = true
     label = ""
 
-    value "5" {}
+    value "10" {}
 }
 
 parameter "Rollout.RetryIntervalSeconds" {
@@ -73,7 +73,7 @@ parameter "Rollout.RetryIntervalSeconds" {
     is_optional = true
     label = ""
 
-    value "5" {}
+    value "20" {}
 }
 
 parameter "Rollout.MaxRetries" {
@@ -84,7 +84,7 @@ parameter "Rollout.MaxRetries" {
     is_optional = true
     label = ""
 
-    value "10" {}
+    value "20" {}
 }
 
 parameter "ReleaseNumber" {
