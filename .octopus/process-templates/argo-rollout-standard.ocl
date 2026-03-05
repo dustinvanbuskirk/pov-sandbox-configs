@@ -2,7 +2,7 @@ name = "Argo Rollout [Canary]"
 description = "Performs Argo Rollout"
 
 icon {
-    color = "#D63D3D"
+    color = "#927002"
     id = "dove"
 }
 
