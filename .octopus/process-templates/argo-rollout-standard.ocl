@@ -179,6 +179,15 @@ step "wait-for-argocd-to-sync-release" {
                 # Validate inputs
                 # ---------------------------------------------------------------------------
                 
+                print("\n[DEBUG] All environment variables:")
+                for k, v in sorted(os.environ.items()):
+                    print(f"  {k} = {v}")
+                
+                print(f"\n[DEBUG] Variable lookups:")
+                print(f"  ReleaseNumber     -> env key: RELEASENUMBER     -> '{RAW_RELEASE_VERSION}'")
+                print(f"  RolloutName       -> env key: ROLLOUTNAME       -> '{ROLLOUT_NAME}'")
+                print(f"  RolloutNameSpace  -> env key: ROLLOUTNAMESPACE  -> '{ROLLOUT_NAMESPACE}'")
+                
                 if not RAW_RELEASE_VERSION:
                     fail("ReleaseNumber variable is empty. Cannot determine target version.")
                 if not ROLLOUT_NAME:
