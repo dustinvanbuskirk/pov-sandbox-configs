@@ -87,6 +87,14 @@ parameter "Rollout.MaxRetries" {
     value "10" {}
 }
 
+parameter "ReleaseNumber" {
+    display_settings = {
+        Octopus.ControlType = "SingleLineText"
+    }
+    help_text = ""
+    label = ""
+}
+
 step "rollout-details" {
     name = "Rollout Details"
 
@@ -160,7 +168,7 @@ step "wait-for-argocd-to-sync-release" {
                 # Configuration — mapped to Octopus project/system variables
                 # ---------------------------------------------------------------------------
                 
-                RAW_RELEASE_VERSION   = os.environ.get("OCTOPUS_RELEASE_NUMBER", "")
+                RAW_RELEASE_VERSION   = get_octopus_variable("ReleaseNumber")
                 ROLLOUT_NAME          = get_octopus_variable("RolloutName")
                 ROLLOUT_NAMESPACE     = get_octopus_variable("RolloutNameSpace")
                 POST_VERIFY_WAIT_SECS = int(get_octopus_variable("Rollout.PostVerifyWaitSeconds", "30"))
@@ -172,7 +180,7 @@ step "wait-for-argocd-to-sync-release" {
                 # ---------------------------------------------------------------------------
                 
                 if not RAW_RELEASE_VERSION:
-                    fail("Octopus.Release.Number is empty. Cannot determine target version.")
+                    fail("ReleaseNumber variable is empty. Cannot determine target version.")
                 if not ROLLOUT_NAME:
                     fail("RolloutName variable is empty.")
                 if not ROLLOUT_NAMESPACE:
