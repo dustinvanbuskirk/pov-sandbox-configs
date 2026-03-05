@@ -87,6 +87,14 @@ parameter "Rollout.MaxRetries" {
     value "10" {}
 }
 
+parameter "Octopus.Release.Number" {
+    display_settings = {
+        Octopus.ControlType = "SingleLineText"
+    }
+    help_text = ""
+    label = ""
+}
+
 step "rollout-details" {
     name = "Rollout Details"
 
