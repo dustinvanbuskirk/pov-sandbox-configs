@@ -46,47 +46,12 @@ parameter "ArgoCD Tenant Tags" {
     label = ""
 }
 
-parameter "Protected Tenant Tags" {
-    display_settings = {
-        Octopus.ControlType = "TenantTags"
-    }
-    help_text = ""
-    label = ""
-}
-
-parameter "OctopusBypassDeploymentMutex" {
-    display_settings = {
-        Octopus.ControlType = "SingleLineText"
-    }
-    help_text = ""
-    label = ""
-
-    value "False" {}
-}
-
 parameter "Target Tags" {
     display_settings = {
         Octopus.ControlType = "TargetTags"
     }
     help_text = ""
     label = ""
-}
-
-step "manual-intervention-required" {
-    name = "Manual Intervention Required"
-
-    action {
-        action_type = "Octopus.Manual"
-        channels_variable = "#{Channels}"
-        environments_variable = "#{Protected Environments}"
-        is_disabled = true
-        properties = {
-            Octopus.Action.Manual.BlockConcurrentDeployments = "False"
-            Octopus.Action.Manual.Instructions = "Check with Manager to Approve"
-            Octopus.Action.Manual.ResponsibleTeamIds = "global/octopus-managers"
-        }
-        tenant_tags_variable = "#{Protected Tenant Tags}"
-    }
 }
 
 step "update-argo-cd-application-image-tags" {
