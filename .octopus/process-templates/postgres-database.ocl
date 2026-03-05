@@ -14,6 +14,14 @@ parameter "Target Tags" {
     label = ""
 }
 
+parameter "Package" {
+    display_settings = {
+        Octopus.ControlType = "Package"
+    }
+    help_text = ""
+    label = ""
+}
+
 step "deploy-to-postgres-database" {
     name = "Deploy to Postgres Database"
     properties = {
