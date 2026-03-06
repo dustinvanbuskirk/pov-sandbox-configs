@@ -6,14 +6,6 @@ icon {
     id = "code-branch"
 }
 
-parameter "Channels" {
-    display_settings = {
-        Octopus.ControlType = "Channels"
-    }
-    help_text = ""
-    label = ""
-}
-
 parameter "Worker Pool" {
     display_settings = {
         Octopus.ControlType = "WorkerPool"
