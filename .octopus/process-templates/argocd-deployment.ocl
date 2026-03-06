@@ -51,7 +51,6 @@ step "update-argo-cd-application-image-tags" {
 
     action {
         action_type = "Octopus.ArgoCDUpdateImageTags"
-        channels_variable = "#{Channels}"
         is_required = true
         properties = {
             Octopus.Action.ArgoCD.CommitMessageSummary = "Octopus Deploy updated image versions"
