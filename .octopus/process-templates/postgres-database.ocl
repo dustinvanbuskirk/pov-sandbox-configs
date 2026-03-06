@@ -1,5 +1,5 @@
 name = "Postgres Database"
-description = ""
+description = "Deploy to Postgres database"
 
 icon {
     color = "#1A77CA"
