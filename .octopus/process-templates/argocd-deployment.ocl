@@ -14,14 +14,6 @@ parameter "Channels" {
     label = ""
 }
 
-parameter "Protected Environments" {
-    display_settings = {
-        Octopus.ControlType = "Environments"
-    }
-    help_text = ""
-    label = ""
-}
-
 parameter "Worker Pool" {
     display_settings = {
         Octopus.ControlType = "WorkerPool"
