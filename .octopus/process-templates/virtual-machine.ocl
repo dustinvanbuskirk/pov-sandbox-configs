@@ -1,5 +1,5 @@
 name = "Virtual Machine"
-description = ""
+description = "Deploy to Virtual Machine"
 
 icon {
     color = "#557999"
