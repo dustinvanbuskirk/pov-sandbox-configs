@@ -1,0 +1,2 @@
+name = "Attach Octopus Agent"
+description = "Attaches existing Octopus Deploy agent."
