@@ -29,7 +29,7 @@ step "perform-sql-migration" {
         action_type = "Octopus.Script"
         properties = {
             Octopus.Action.RunOnServer = "true"
-            Octopus.Action.Script.ScriptFileName = "redgate-migration-1.0.0.zip"
+            Octopus.Action.Script.ScriptFileName = "redgate-migration-1.0.1.zip"
             Octopus.Action.Script.ScriptSource = "Package"
             OctopusUseBundledTooling = "False"
         }
