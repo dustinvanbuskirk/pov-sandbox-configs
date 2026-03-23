@@ -1,2 +1,57 @@
 name = "Restart IIS"
 description = "Restart IIS"
+
+icon {
+    color = "#1A77CA"
+    id = "power-off"
+}
+
+parameter "Worker Pool" {
+    display_settings = {
+        Octopus.ControlType = "WorkerPool"
+    }
+    help_text = ""
+    label = ""
+}
+
+step "restart-iis" {
+    name = "Restart IIS"
+
+    action {
+        action_type = "Octopus.Script"
+        properties = {
+            Octopus.Action.RunOnServer = "true"
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                #!/usr/bin/env bash
+                
+                # Mock Windows IIS Restart output
+                TARGET_SERVER="PROD-WEB-01"
+                
+                echo "INFO  Restarting IIS on ${TARGET_SERVER}..."
+                echo ""
+                echo "INFO  Stopping W3SVC (World Wide Web Publishing Service)..."
+                echo "INFO  The World Wide Web Publishing Service service is stopping."
+                echo "INFO  The World Wide Web Publishing Service service was stopped successfully."
+                echo ""
+                echo "INFO  Stopping WAS (Windows Process Activation Service)..."
+                echo "INFO  The Windows Process Activation Service service is stopping."
+                echo "INFO  The Windows Process Activation Service service was stopped successfully."
+                echo ""
+                echo "INFO  Starting WAS (Windows Process Activation Service)..."
+                echo "INFO  The Windows Process Activation Service service is starting."
+                echo "INFO  The Windows Process Activation Service service was started successfully."
+                echo ""
+                echo "INFO  Starting W3SVC (World Wide Web Publishing Service)..."
+                echo "INFO  The World Wide Web Publishing Service service is starting."
+                echo "INFO  The World Wide Web Publishing Service service was started successfully."
+                echo ""
+                echo "INFO  IIS restarted successfully on ${TARGET_SERVER}"
+                echo "INFO  Exit code: 0"
+                EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "Bash"
+            OctopusUseBundledTooling = "False"
+        }
+        worker_pool_variable = "#{Worker Pool}"
+    }
+}
