@@ -15,9 +15,9 @@ parameter "Worker Pool" {
 }
 
 step "run-a-script" {
-    name = "Run a Script"
+    name = "Run Sonarqube Analysis"
 
-    action {
+    action "run-sonarqube-analysis" {
         action_type = "Octopus.Script"
         properties = {
             Octopus.Action.RunOnServer = "true"
