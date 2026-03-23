@@ -1,2 +1,7 @@
 name = "Veracode Scan"
 description = "Run Veracode Scan"
+
+icon {
+    color = "#1A77CA"
+    id = "shield-check"
+}
