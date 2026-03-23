@@ -1,2 +1,7 @@
-name = "Sonarqube Verification"
-description = "Verifying with Sonarqube"
+name = "Sonarqube Analysis"
+description = "Analyze with Sonarqube"
+
+icon {
+    color = "#1A77CA"
+    id = "bug"
+}
