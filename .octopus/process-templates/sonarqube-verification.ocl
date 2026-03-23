@@ -20,6 +20,7 @@ step "run-a-script" {
     action "run-sonarqube-analysis" {
         action_type = "Octopus.Script"
         properties = {
+            Octopus.Action.ExecutionTimeout.Minutes = "10"
             Octopus.Action.RunOnServer = "true"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 #!/usr/bin/env bash
