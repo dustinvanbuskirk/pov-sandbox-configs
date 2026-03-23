@@ -1,6 +1,11 @@
 name = "Windows .NET"
 description = "Deploy .NET Application to Windows"
 
+icon {
+    color = "#1A77CA"
+    id = "windows"
+}
+
 parameter "Worker Pool" {
     display_settings = {
         Octopus.ControlType = "WorkerPool"
