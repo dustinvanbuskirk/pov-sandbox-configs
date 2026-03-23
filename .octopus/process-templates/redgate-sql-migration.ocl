@@ -29,7 +29,7 @@ step "perform-sql-migration" {
         action_type = "Octopus.Script"
         properties = {
             Octopus.Action.RunOnServer = "true"
-            Octopus.Action.Script.ScriptBody = "bash redgate-migration.sh"
+            Octopus.Action.Script.ScriptBody = "bash Package/redgate-migration.sh"
             Octopus.Action.Script.ScriptSource = "Inline"
             Octopus.Action.Script.Syntax = "Bash"
             OctopusUseBundledTooling = "False"
@@ -38,6 +38,7 @@ step "perform-sql-migration" {
 
         packages "Package" {
             acquisition_location = "Server"
+            feed = "octopus-server-built-in"
             package_id = ""
             properties = {
                 Extract = "True"
