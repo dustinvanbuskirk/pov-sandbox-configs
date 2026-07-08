@@ -51,3 +51,45 @@ step "plan-to-apply-a-terraform-template" {
         }
     }
 }
+
+step "manual-intervention-required" {
+    name = "Manual Intervention Required"
+
+    action {
+        action_type = "Octopus.Manual"
+        properties = {
+            Octopus.Action.Manual.BlockConcurrentDeployments = "False"
+            Octopus.Action.Manual.Instructions = "Review plan output before continuing"
+            Octopus.Action.Manual.ResponsibleTeamIds = "global/octopus-managers"
+        }
+    }
+}
+
+step "apply-a-terraform-template" {
+    name = "Apply a Terraform template"
+
+    action {
+        action_type = "Octopus.TerraformApply"
+        properties = {
+            Octopus.Action.GitRepository.Source = "External"
+            Octopus.Action.GoogleCloud.ImpersonateServiceAccount = "False"
+            Octopus.Action.GoogleCloud.UseVMServiceAccount = "True"
+            Octopus.Action.Script.ScriptSource = "GitRepository"
+            Octopus.Action.Terraform.AllowPluginDownloads = "True"
+            Octopus.Action.Terraform.AzureAccount = "False"
+            Octopus.Action.Terraform.GoogleCloudAccount = "False"
+            Octopus.Action.Terraform.ManagedAccount = "None"
+            Octopus.Action.Terraform.PlanJsonOutput = "False"
+            Octopus.Action.Terraform.RunAutomaticFileSubstitution = "True"
+            Octopus.Action.Terraform.TemplateDirectory = "#{Template Directory}"
+        }
+        worker_pool_variable = "#{Worker Pool}"
+
+        git_dependencies {
+            default_branch = "main"
+            git_credential_id = "GitCredentials-21"
+            git_credential_type = "Library"
+            repository_uri = "https://github.com/dustinvanbuskirk/nuc-lab.git"
+        }
+    }
+}
