@@ -1,0 +1,31 @@
+parameter "Worker Pool" {
+    display_settings = {
+        Octopus.ControlType = "WorkerPool"
+    }
+    help_text = ""
+    label = ""
+}
+
+parameter "Package" {
+    display_settings = {
+        Octopus.ControlType = "Package"
+    }
+    help_text = ""
+    label = ""
+}
+
+parameter "ArgoCD Tenant Tags" {
+    display_settings = {
+        Octopus.ControlType = "TenantTags"
+    }
+    help_text = ""
+    label = ""
+}
+
+parameter "Target Tags" {
+    display_settings = {
+        Octopus.ControlType = "TargetTags"
+    }
+    help_text = ""
+    label = ""
+}
