@@ -15,7 +15,7 @@ parameter "Worker Pool" {
 }
 
 step "run-a-script" {
-    name = "Run a Script"
+    name = "Create SBOM and verify attestation"
 
     action {
         action_type = "Octopus.Script"
