@@ -1,18 +1,49 @@
 name = "Verify Build Artifacts Required"
-violation_action = "block"
-
-conditions {
-    rego = <<-EOT
-            package verify_build_artifacts_required
-            
-            default result := {"allowed": true}
-            EOT
-}
+description = "Requires the Process Template Deploy Process - Verify Build Artifacts for all deployments"
+ViolationReason = "Deploy Process - Verify Build Artifacts is required on all deployments to K8s"
 
 scope {
     rego = <<-EOT
-            package verify_build_artifacts_required
-            
-            default evaluate := true
-            EOT
+        # The package name MUST match the file name that is stored in git. The file name should be verify_build_artifacts_required.ocl
+        package verify_build_artifacts_required 
+
+            default evaluate := false
+
+        # Only run this policy for deployments in the projects in the Project Group Kubernetes
+            evaluate := true if {
+            input.ProjectGroup.Slug == "kubernetes" 
+            not input.Runbook           
+        }
+    EOT
+}
+
+conditions {
+    rego = <<-EOT
+        # The package name MUST match the file name that is stored in git. The file name should be verify_build_artifacts_required.ocl 
+        package verify_build_artifacts_required
+
+        # Assume all evaluations will fail
+        default result := {"allowed": false}
+
+        result := {"allowed": true} if {
+            some step in input.Steps
+            # Match using the source.SlugOrId
+            step.Source.SlugOrId == "deploy-process-verify-build-artifacts" 
+            # Ensure the step is enabled - if it is not then fail it.
+            step.Enabled == true           
+            not verify_build_artifacts_skipped
+        }
+
+        result := {"allowed": false, "Reason": "The Process Template Deploy Process - Verify Build Artifacts is required and cannot be skipped for a deployment to K8s to any environment."} if {
+            verify_build_artifacts_skipped
+        }
+
+        verify_build_artifacts_skipped if {
+            # Fail the evaluation if the user elects to skip the Process Template when creating the deployment
+            some step in input.Steps
+            step.Id in input.SkippedSteps
+            step.Source.SlugOrId == "deploy-process-verify-build-artifacts"
+        }
+    EOT
+
 }
