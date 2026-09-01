@@ -32,71 +32,179 @@ step "run-a-script" {
                 # guided-failure path) without a live GitHub Actions build, a real PAT,
                 # or Trivy installed on the worker.
                 #
-                # Usage:
-                #   ./mock-sbom-attestation.sh sbom-scan   <name> [pass|fail]
-                #   ./mock-sbom-attestation.sh attest      <package-or-image> [pass|fail]
-                #   ./mock-sbom-attestation.sh image-scan  <image> [pass|fail]
+                # Requires NO input to run successfully: with zero arguments it builds a
+                # synthetic SBOM, an auto-generated manifest of one package + one container,
+                # and walks through the same steps the real Process Template does — SBOM
+                # scan, attestation verify per manifest item, image scan for the container.
+                # Picks up Octopus system variables if they're present in the environment
+                # (OCTOPUS_PROJECT_NAME etc.) and falls back to sane defaults otherwise.
                 #
-                # Each subcommand mimics the real tool's contract:
-                #   - prints Octopus-style Write-Host/Write-Highlight/Write-Error lines
-                #   - writes an artifact-like JSON file to ./mock-artifacts/
-                #   - returns exit code 0 on pass, 1 on fail (same as the real tools)
+                # Usage:
+                #   ./mock-sbom-attestation.sh                                  runs the full mock pipeline, no input needed
+                #   ./mock-sbom-attestation.sh sbom-scan   <name>              [pass|fail]
+                #   ./mock-sbom-attestation.sh attest      <package-or-image>  [pass|fail]
+                #   ./mock-sbom-attestation.sh image-scan  <image>             [pass|fail]
                 #
                 # Outcome resolution order (first match wins):
-                #   1. explicit "pass"/"fail" arg
-                #   2. MOCK_RESULT env var ("pass"/"fail")
-                #   3. random (~80% pass) — good for fuzzing Policy behavior over many runs
+                #   1. explicit "pass"/"fail" arg on a single-item subcommand
+                #   2. MOCK_RESULT env var: pass | fail | random (random ~80% pass, for fuzzing Policy logic)
+                #   3. default: pass
+                #
+                # Every artifact this script writes is tagged "mock": true and every console
+                # line is prefixed [MOCK] — these are simulated results for testing
+                # Process Templates / Policies, never mistake them for a real scan or a
+                # real attestation.
                 
                 set -euo pipefail
                 
                 ARTIFACT_DIR="./mock-artifacts"
                 mkdir -p "$ARTIFACT_DIR"
                 
+                # ---------------------------------------------------------------------------
+                # Context — pulled from Octopus system variables when present, otherwise
+                # defaulted, so the script never needs anything supplied to run.
+                # ---------------------------------------------------------------------------
+                PROJECT_NAME="${OCTOPUS_PROJECT_NAME:-Digital Receipts}"
+                RELEASE_VERSION="${OCTOPUS_RELEASE_NUMBER:-2.4.12}"
+                ENVIRONMENT_NAME="${OCTOPUS_ENVIRONMENT_NAME:-Development}"
+                TENANT_NAME="${OCTOPUS_TENANT_NAME:-}"
+                SLUG="$(echo "$PROJECT_NAME" | tr '[:upper:] ' '[:lower:]-')"
+                CONTAINER_IMAGE="octopuslabs/${SLUG}:${RELEASE_VERSION}"
+                
+                # ---------------------------------------------------------------------------
+                # Fake dependency pool used to synthesize a plausible SBOM
+                # ---------------------------------------------------------------------------
+                PACKAGE_POOL=(
+                  "Newtonsoft.Json|13.0.3|MIT"
+                  "Serilog|3.1.1|Apache-2.0"
+                  "Microsoft.Extensions.Logging|8.0.0|MIT"
+                  "AutoMapper|12.0.1|MIT"
+                  "Polly|8.2.0|BSD-3-Clause"
+                  "Dapper|2.1.24|Apache-2.0"
+                  "FluentValidation|11.9.0|Apache-2.0"
+                  "Swashbuckle.AspNetCore|6.5.0|MIT"
+                  "MediatR|12.2.0|Apache-2.0"
+                  "StackExchange.Redis|2.7.10|MIT"
+                  "Microsoft.EntityFrameworkCore|8.0.1|MIT"
+                  "Npgsql|8.0.1|PostgreSQL"
+                )
+                
+                # Fake CVE pool used when an outcome resolves to "fail"
+                CVE_POOL=(
+                  "CVE-2024-21626|CRITICAL|runc|1.1.5|1.1.7"
+                  "CVE-2023-44487|HIGH|grpc|1.54.0|1.59.0"
+                  "CVE-2024-3094|CRITICAL|xz-utils|5.4.1|5.6.2"
+                  "CVE-2023-5678|MEDIUM|openssl|3.0.9|3.0.13"
+                  "CVE-2022-3602|HIGH|openssl|3.0.5|3.0.7"
+                )
+                
                 resolve_outcome() {
                   local explicit="${1:-}"
                   if [[ "$explicit" == "pass" || "$explicit" == "fail" ]]; then
-                    echo "$explicit"
+                    echo "$explicit"; return
+                  fi
+                  if [[ "${MOCK_RESULT:-}" == "pass" || "${MOCK_RESULT:-}" == "fail" ]]; then
+                    echo "$MOCK_RESULT"; return
+                  fi
+                  if [[ "${MOCK_RESULT:-}" == "random" ]]; then
+                    if (( RANDOM % 10 < 8 )); then echo "pass"; else echo "fail"; fi
                     return
                   fi
-                  if [[ -n "${MOCK_RESULT:-}" ]]; then
-                    echo "$MOCK_RESULT"
-                    return
-                  fi
-                  # ~80% pass rate by default
-                  if (( RANDOM % 10 < 8 )); then echo "pass"; else echo "fail"; fi
+                  echo "pass"
                 }
                 
-                fake_cve() {
-                  local n=$1
-                  printf 'CVE-2025-%04d' "$((10000 + n))"
+                json_escape() { printf '%s' "$1" | sed 's/"/\\"/g'; }
+                
+                # ---------------------------------------------------------------------------
+                # SBOM generation + scan
+                # ---------------------------------------------------------------------------
+                generate_sbom() {
+                  local name="$1" version="$2"
+                  local sbom_file="$ARTIFACT_DIR/${name}.sbom.json"
+                  local count=$(( (RANDOM % 5) + 8 ))   # 8-12 packages
+                
+                  echo "[MOCK] Extracting SBOM for ${name} ${version}"
+                  echo "[MOCK] Attaching ${name}.sbom.json as a deployment artifact"
+                
+                  {
+                    echo "{"
+                    echo "  \"mock\": true,"
+                    echo "  \"spdxVersion\": \"SPDX-2.3\","
+                    echo "  \"name\": \"$(json_escape "$name")\","
+                    echo "  \"version\": \"$(json_escape "$version")\","
+                    echo "  \"generatedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\","
+                    echo "  \"packages\": ["
+                    local i=0
+                    for entry in "${PACKAGE_POOL[@]:0:$count}"; do
+                      IFS='|' read -r pkg pver license <<< "$entry"
+                      i=$((i+1))
+                      local comma=","
+                      [[ $i -eq $count ]] && comma=""
+                      echo "    {\"name\": \"$pkg\", \"version\": \"$pver\", \"license\": \"$license\"}$comma"
+                    done
+                    echo "  ]"
+                    echo "}"
+                  } > "$sbom_file"
+                
+                  echo "[MOCK] SBOM contains $count third-party package references:"
+                  printf '%-32s %-14s %s\n' "PACKAGE" "VERSION" "LICENSE"
+                  for entry in "${PACKAGE_POOL[@]:0:$count}"; do
+                    IFS='|' read -r pkg pver license <<< "$entry"
+                    printf '%-32s %-14s %s\n' "$pkg" "$pver" "$license"
+                  done
+                }
+                
+                trivy_table_header() {
+                  echo ""
+                  echo "Report Summary (mock)"
+                  echo ""
+                  printf '%-16s %-8s %-10s\n' "Target" "Type" "Vulnerabilities"
                 }
                 
                 cmd_sbom_scan() {
                   local name="${1:?package/SBOM name required}"
                   local outcome
                   outcome=$(resolve_outcome "${2:-}")
-                  local artifact="$ARTIFACT_DIR/${name}.sbom-scan.json"
+                  local scan_file="$ARTIFACT_DIR/${name}.sbom-scan.json"
                 
-                  echo "Attaching ${name}.sbom.json as an artifact"
-                  echo "Running trivy (mock) to scan the SBOM for known fixed vulnerabilities"
+                  generate_sbom "$name" "$RELEASE_VERSION"
+                
+                  echo "[MOCK] Running trivy sbom scan (--severity MEDIUM,HIGH,CRITICAL --ignore-unfixed)"
                 
                   if [[ "$outcome" == "pass" ]]; then
-                    cat > "$artifact" <<EOF
-                {"package":"$name","tool":"trivy(mock)","vulnerabilities":[],"result":"clean"}
+                    trivy_table_header
+                    printf '%-16s %-8s %-10s\n' "${name}.sbom.json" "spdx" "0"
+                    cat > "$scan_file" <<EOF
+                {"mock": true, "package": "$name", "tool": "trivy(mock)", "vulnerabilities": [], "result": "clean"}
                 EOF
-                    echo "[Highlight] Trivy successfully scanned the SBOM and no new vulnerabilities were found."
-                    exit 0
+                    echo ""
+                    echo "[MOCK][Highlight] Trivy successfully scanned the SBOM and no new vulnerabilities were found in the referenced third-party libraries."
+                    return 0
                   else
-                    local cve1 cve2
-                    cve1=$(fake_cve 1); cve2=$(fake_cve 2)
-                    cat > "$artifact" <<EOF
-                {"package":"$name","tool":"trivy(mock)","vulnerabilities":["$cve1","$cve2"],"result":"vulnerable"}
+                    local pick1="${CVE_POOL[0]}" pick2="${CVE_POOL[1]}"
+                    IFS='|' read -r cve1 sev1 pkg1 iv1 fv1 <<< "$pick1"
+                    IFS='|' read -r cve2 sev2 pkg2 iv2 fv2 <<< "$pick2"
+                    trivy_table_header
+                    printf '%-16s %-8s %-10s\n' "${name}.sbom.json" "spdx" "2"
+                    echo ""
+                    printf '%-14s %-10s %-10s %-10s %s\n' "LIBRARY" "SEVERITY" "INSTALLED" "FIXED" "CVE"
+                    printf '%-14s %-10s %-10s %-10s %s\n' "$pkg1" "$sev1" "$iv1" "$fv1" "$cve1"
+                    printf '%-14s %-10s %-10s %-10s %s\n' "$pkg2" "$sev2" "$iv2" "$fv2" "$cve2"
+                    cat > "$scan_file" <<EOF
+                {"mock": true, "package": "$name", "tool": "trivy(mock)", "vulnerabilities": [
+                  {"id": "$cve1", "severity": "$sev1", "package": "$pkg1", "installedVersion": "$iv1", "fixedVersion": "$fv1"},
+                  {"id": "$cve2", "severity": "$sev2", "package": "$pkg2", "installedVersion": "$iv2", "fixedVersion": "$fv2"}
+                ], "result": "vulnerable"}
                 EOF
-                    echo "[Error] Trivy found vulnerabilities ($cve1, $cve2) that must be fixed before this version can proceed." >&2
-                    exit 1
+                    echo ""
+                    echo "[MOCK][Error] Trivy found vulnerabilities ($cve1, $cve2) that must be fixed before this application version can proceed." >&2
+                    return 1
                   fi
                 }
                 
+                # ---------------------------------------------------------------------------
+                # Attestation verification
+                # ---------------------------------------------------------------------------
                 cmd_attest() {
                   local target="${1:?package or oci://image reference required}"
                   local outcome
@@ -104,60 +212,123 @@ step "run-a-script" {
                   local name
                   name=$(echo "$target" | tr -c 'A-Za-z0-9._-' '_')
                   local artifact="$ARTIFACT_DIR/${name}.attestation.json"
+                  local digest="sha256:$(printf '%s' "$target$RANDOM" | sha256sum | cut -c1-64)"
                 
-                  echo "Verifying attestation (mock) for $target"
+                  echo "[MOCK] Verifying attestation for $target (repo octopusdeploylabs/${SLUG})"
+                  echo "[MOCK] Loading trusted root, matching digest $digest"
                 
                   if [[ "$outcome" == "pass" ]]; then
                     cat > "$artifact" <<EOF
-                {"subject":"$target","verified":true,"predicateType":"https://slsa.dev/provenance/v1","tool":"gh attestation verify(mock)"}
+                {
+                  "mock": true,
+                  "subject": "$target",
+                  "digest": "$digest",
+                  "verified": true,
+                  "predicateType": "https://slsa.dev/provenance/v1",
+                  "signerWorkflow": "octopusdeploylabs/${SLUG}/.github/workflows/build.yml",
+                  "verifiedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+                  "tool": "gh attestation verify(mock)"
+                }
                 EOF
-                    echo "[Highlight] $target successfully passed attestation verification"
-                    exit 0
+                    echo "[MOCK][Highlight] $target successfully passed attestation verification"
+                    echo "[MOCK]   Subject: $digest"
+                    echo "[MOCK]   Predicate type: https://slsa.dev/provenance/v1"
+                    return 0
                   else
                     cat > "$artifact" <<EOF
-                {"subject":"$target","verified":false,"reason":"no attestation found or signature mismatch","tool":"gh attestation verify(mock)"}
+                {
+                  "mock": true,
+                  "subject": "$target",
+                  "digest": "$digest",
+                  "verified": false,
+                  "reason": "no matching attestation found for digest",
+                  "tool": "gh attestation verify(mock)"
+                }
                 EOF
-                    echo "[Error] The attestation for $target could not be verified - no attestation was generated or the package has been tampered with since it was created." >&2
-                    exit 1
+                    echo "[MOCK][Error] The attestation for $target could not be verified - no attestation was generated or the package has been tampered with since it was created. Stopping the deployment to avoid a security incident." >&2
+                    return 1
                   fi
                 }
                 
+                # ---------------------------------------------------------------------------
+                # Container image scan
+                # ---------------------------------------------------------------------------
                 cmd_image_scan() {
                   local image="${1:?image reference required}"
                   local outcome
                   outcome=$(resolve_outcome "${2:-}")
                 
-                  echo "Running trivy (mock) image scan on $image for known fixed vulnerabilities"
+                  echo "[MOCK] Running trivy image scan on $image (--severity MEDIUM,HIGH,CRITICAL --ignore-unfixed)"
                 
                   if [[ "$outcome" == "pass" ]]; then
-                    echo "[Highlight] Trivy successfully scanned $image, no new vulnerabilities found."
-                    exit 0
+                    trivy_table_header
+                    printf '%-16s %-8s %-10s\n' "$image" "oci" "0"
+                    echo ""
+                    echo "[MOCK][Highlight] Trivy successfully scanned $image and no new vulnerabilities have been found in the container or base containers since they were built."
+                    return 0
                   else
-                    local cve1
-                    cve1=$(fake_cve 3)
-                    echo "[Error] Trivy found vulnerabilities ($cve1) in $image that must be fixed. You can no longer deploy this release." >&2
-                    exit 1
+                    local pick="${CVE_POOL[2]}"
+                    IFS='|' read -r cve sev pkg iv fv <<< "$pick"
+                    trivy_table_header
+                    printf '%-16s %-8s %-10s\n' "$image" "oci" "1"
+                    echo ""
+                    printf '%-14s %-10s %-10s %-10s %s\n' "LIBRARY" "SEVERITY" "INSTALLED" "FIXED" "CVE"
+                    printf '%-14s %-10s %-10s %-10s %s\n' "$pkg" "$sev" "$iv" "$fv" "$cve"
+                    echo ""
+                    echo "[MOCK][Error] Trivy found vulnerabilities ($cve) in the build artifacts that must be fixed. You can no longer deploy this release." >&2
+                    return 1
                   fi
                 }
                 
                 usage() {
                   cat <<EOF
                 Usage:
+                  $0                                  runs the full mock pipeline (SBOM scan + attest + image scan), no input required, defaults to pass
                   $0 sbom-scan   <name>              [pass|fail]
                   $0 attest      <package-or-image>  [pass|fail]
                   $0 image-scan  <image>             [pass|fail]
                 
                 Environment:
-                  MOCK_RESULT=pass|fail   forces every unspecified call to that outcome
+                  MOCK_RESULT=pass|fail|random   forces every unspecified call to that outcome (default: pass)
+                  OCTOPUS_PROJECT_NAME, OCTOPUS_RELEASE_NUMBER, OCTOPUS_ENVIRONMENT_NAME, OCTOPUS_TENANT_NAME
+                                                  used for context if present, otherwise defaulted
                 EOF
-                  exit 1
+                }
+                
+                # ---------------------------------------------------------------------------
+                # Default pipeline — no input required. Auto-generates a manifest of one
+                # package + one container (mirrors the loop over build-information variables
+                # in the real Process Template) and walks the same three checks the real
+                # steps perform, stopping at the first failure like a real deployment would.
+                # ---------------------------------------------------------------------------
+                run_default_pipeline() {
+                  echo "[MOCK] === Verify Build Artifacts (mock) ==="
+                  echo "[MOCK] Project: $PROJECT_NAME   Release: $RELEASE_VERSION   Environment: $ENVIRONMENT_NAME${TENANT_NAME:+   Tenant: $TENANT_NAME}"
+                  echo ""
+                
+                  echo "[MOCK] --- Step 1: SBOM extraction + scan ---"
+                  cmd_sbom_scan "$PROJECT_NAME"
+                  echo ""
+                
+                  echo "[MOCK] --- Step 2: Attestation + image verification ---"
+                  echo "[MOCK] Manifest: 1 package, 1 container"
+                  cmd_attest "$PROJECT_NAME"
+                  echo ""
+                  cmd_attest "oci://$CONTAINER_IMAGE"
+                  cmd_image_scan "$CONTAINER_IMAGE"
+                  echo ""
+                
+                  echo "[MOCK] === All checks passed. Artifacts written to $ARTIFACT_DIR/ ==="
+                  ls -1 "$ARTIFACT_DIR"
                 }
                 
                 case "${1:-}" in
+                  "")         run_default_pipeline ;;
                   sbom-scan)  shift; cmd_sbom_scan "$@" ;;
                   attest)     shift; cmd_attest "$@" ;;
                   image-scan) shift; cmd_image_scan "$@" ;;
-                  *) usage ;;
+                  -h|--help)  usage ;;
+                  *)          usage; exit 1 ;;
                 esac
                 EOT
             Octopus.Action.Script.ScriptSource = "Inline"
