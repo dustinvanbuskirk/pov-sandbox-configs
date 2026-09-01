@@ -3,5 +3,5 @@ description = ""
 
 icon {
     color = "#757575"
-    id = "layer-group"
+    id = "layer-plus"
 }
