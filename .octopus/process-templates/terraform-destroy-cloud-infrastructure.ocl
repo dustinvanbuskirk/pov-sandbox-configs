@@ -1,0 +1,2 @@
+name = "Terraform Destroy Cloud Infrastructure"
+description = "Destroy's infrastructure required by project."
