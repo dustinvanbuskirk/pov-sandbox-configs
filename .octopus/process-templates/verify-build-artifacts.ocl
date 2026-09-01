@@ -1,0 +1,2 @@
+name = "Verify Build Artifacts"
+description = "Create SBOM and verify attestation"
