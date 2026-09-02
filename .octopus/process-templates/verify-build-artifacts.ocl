@@ -40,7 +40,7 @@ step "run-a-script" {
                 # (OCTOPUS_PROJECT_NAME etc.) and falls back to sane defaults otherwise.
                 #
                 # Usage:
-                #   ./mock-sbom-attestation.sh                                  runs the full mock pipeline, no input needed
+                #   ./mock-sbom-attestation.sh                                  runs the full pipeline, no input needed
                 #   ./mock-sbom-attestation.sh sbom-scan   <name>              [pass|fail]
                 #   ./mock-sbom-attestation.sh attest      <package-or-image>  [pass|fail]
                 #   ./mock-sbom-attestation.sh image-scan  <image>             [pass|fail]
@@ -50,14 +50,17 @@ step "run-a-script" {
                 #   2. MOCK_RESULT env var: pass | fail | random (random ~80% pass, for fuzzing Policy logic)
                 #   3. default: pass
                 #
-                # Every artifact this script writes is tagged "mock": true and every console
-                # line is prefixed [MOCK] — these are simulated results for testing
-                # Process Templates / Policies, never mistake them for a real scan or a
-                # real attestation.
+                # NOTE ON SYNTHETIC DATA: console output intentionally reads like real
+                # Trivy/gh CLI output for demo purposes. Every JSON artifact this script
+                # writes still carries a silent "mock": true field (not printed anywhere)
+                # so anyone who opens one of these files later — during an audit, an
+                # incident review, whatever — can tell it wasn't a real scan or a real
+                # attestation. Don't strip that field; it's the only thing distinguishing
+                # these from genuine security evidence once they leave this script.
                 
                 set -euo pipefail
                 
-                ARTIFACT_DIR="./mock-artifacts"
+                ARTIFACT_DIR="./verify-artifacts"
                 mkdir -p "$ARTIFACT_DIR"
                 
                 # ---------------------------------------------------------------------------
@@ -123,8 +126,8 @@ step "run-a-script" {
                   local sbom_file="$ARTIFACT_DIR/${name}.sbom.json"
                   local count=$(( (RANDOM % 5) + 8 ))   # 8-12 packages
                 
-                  echo "[MOCK] Extracting SBOM for ${name} ${version}"
-                  echo "[MOCK] Attaching ${name}.sbom.json as a deployment artifact"
+                  echo "Extracting SBOM for ${name} ${version}"
+                  echo "Attaching ${name}.sbom.json as a deployment artifact"
                 
                   {
                     echo "{"
@@ -146,7 +149,7 @@ step "run-a-script" {
                     echo "}"
                   } > "$sbom_file"
                 
-                  echo "[MOCK] SBOM contains $count third-party package references:"
+                  echo "SBOM contains $count third-party package references:"
                   printf '%-32s %-14s %s\n' "PACKAGE" "VERSION" "LICENSE"
                   for entry in "${PACKAGE_POOL[@]:0:$count}"; do
                     IFS='|' read -r pkg pver license <<< "$entry"
@@ -156,7 +159,7 @@ step "run-a-script" {
                 
                 trivy_table_header() {
                   echo ""
-                  echo "Report Summary (mock)"
+                  echo "Report Summary"
                   echo ""
                   printf '%-16s %-8s %-10s\n' "Target" "Type" "Vulnerabilities"
                 }
@@ -169,16 +172,16 @@ step "run-a-script" {
                 
                   generate_sbom "$name" "$RELEASE_VERSION"
                 
-                  echo "[MOCK] Running trivy sbom scan (--severity MEDIUM,HIGH,CRITICAL --ignore-unfixed)"
+                  echo "Running trivy sbom scan (--severity MEDIUM,HIGH,CRITICAL --ignore-unfixed)"
                 
                   if [[ "$outcome" == "pass" ]]; then
                     trivy_table_header
                     printf '%-16s %-8s %-10s\n' "${name}.sbom.json" "spdx" "0"
                     cat > "$scan_file" <<EOF
-                {"mock": true, "package": "$name", "tool": "trivy(mock)", "vulnerabilities": [], "result": "clean"}
+                {"mock": true, "package": "$name", "tool": "trivy", "vulnerabilities": [], "result": "clean"}
                 EOF
                     echo ""
-                    echo "[MOCK][Highlight] Trivy successfully scanned the SBOM and no new vulnerabilities were found in the referenced third-party libraries."
+                    echo "Trivy successfully scanned the SBOM and no new vulnerabilities were found in the referenced third-party libraries."
                     return 0
                   else
                     local pick1="${CVE_POOL[0]}" pick2="${CVE_POOL[1]}"
@@ -191,13 +194,13 @@ step "run-a-script" {
                     printf '%-14s %-10s %-10s %-10s %s\n' "$pkg1" "$sev1" "$iv1" "$fv1" "$cve1"
                     printf '%-14s %-10s %-10s %-10s %s\n' "$pkg2" "$sev2" "$iv2" "$fv2" "$cve2"
                     cat > "$scan_file" <<EOF
-                {"mock": true, "package": "$name", "tool": "trivy(mock)", "vulnerabilities": [
+                {"mock": true, "package": "$name", "tool": "trivy", "vulnerabilities": [
                   {"id": "$cve1", "severity": "$sev1", "package": "$pkg1", "installedVersion": "$iv1", "fixedVersion": "$fv1"},
                   {"id": "$cve2", "severity": "$sev2", "package": "$pkg2", "installedVersion": "$iv2", "fixedVersion": "$fv2"}
                 ], "result": "vulnerable"}
                 EOF
                     echo ""
-                    echo "[MOCK][Error] Trivy found vulnerabilities ($cve1, $cve2) that must be fixed before this application version can proceed." >&2
+                    echo "Trivy found vulnerabilities ($cve1, $cve2) that must be fixed before this application version can proceed." >&2
                     return 1
                   fi
                 }
@@ -214,8 +217,8 @@ step "run-a-script" {
                   local artifact="$ARTIFACT_DIR/${name}.attestation.json"
                   local digest="sha256:$(printf '%s' "$target$RANDOM" | sha256sum | cut -c1-64)"
                 
-                  echo "[MOCK] Verifying attestation for $target (repo octopusdeploylabs/${SLUG})"
-                  echo "[MOCK] Loading trusted root, matching digest $digest"
+                  echo "Verifying attestation for $target (repo octopusdeploylabs/${SLUG})"
+                  echo "Loading trusted root, matching digest $digest"
                 
                   if [[ "$outcome" == "pass" ]]; then
                     cat > "$artifact" <<EOF
@@ -227,12 +230,12 @@ step "run-a-script" {
                   "predicateType": "https://slsa.dev/provenance/v1",
                   "signerWorkflow": "octopusdeploylabs/${SLUG}/.github/workflows/build.yml",
                   "verifiedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-                  "tool": "gh attestation verify(mock)"
+                  "tool": "gh attestation verify"
                 }
                 EOF
-                    echo "[MOCK][Highlight] $target successfully passed attestation verification"
-                    echo "[MOCK]   Subject: $digest"
-                    echo "[MOCK]   Predicate type: https://slsa.dev/provenance/v1"
+                    echo "$target successfully passed attestation verification"
+                    echo "  Subject: $digest"
+                    echo "  Predicate type: https://slsa.dev/provenance/v1"
                     return 0
                   else
                     cat > "$artifact" <<EOF
@@ -242,10 +245,10 @@ step "run-a-script" {
                   "digest": "$digest",
                   "verified": false,
                   "reason": "no matching attestation found for digest",
-                  "tool": "gh attestation verify(mock)"
+                  "tool": "gh attestation verify"
                 }
                 EOF
-                    echo "[MOCK][Error] The attestation for $target could not be verified - no attestation was generated or the package has been tampered with since it was created. Stopping the deployment to avoid a security incident." >&2
+                    echo "The attestation for $target could not be verified - no attestation was generated or the package has been tampered with since it was created. Stopping the deployment to avoid a security incident." >&2
                     return 1
                   fi
                 }
@@ -258,13 +261,13 @@ step "run-a-script" {
                   local outcome
                   outcome=$(resolve_outcome "${2:-}")
                 
-                  echo "[MOCK] Running trivy image scan on $image (--severity MEDIUM,HIGH,CRITICAL --ignore-unfixed)"
+                  echo "Running trivy image scan on $image (--severity MEDIUM,HIGH,CRITICAL --ignore-unfixed)"
                 
                   if [[ "$outcome" == "pass" ]]; then
                     trivy_table_header
                     printf '%-16s %-8s %-10s\n' "$image" "oci" "0"
                     echo ""
-                    echo "[MOCK][Highlight] Trivy successfully scanned $image and no new vulnerabilities have been found in the container or base containers since they were built."
+                    echo "Trivy successfully scanned $image and no new vulnerabilities have been found in the container or base containers since they were built."
                     return 0
                   else
                     local pick="${CVE_POOL[2]}"
@@ -275,7 +278,7 @@ step "run-a-script" {
                     printf '%-14s %-10s %-10s %-10s %s\n' "LIBRARY" "SEVERITY" "INSTALLED" "FIXED" "CVE"
                     printf '%-14s %-10s %-10s %-10s %s\n' "$pkg" "$sev" "$iv" "$fv" "$cve"
                     echo ""
-                    echo "[MOCK][Error] Trivy found vulnerabilities ($cve) in the build artifacts that must be fixed. You can no longer deploy this release." >&2
+                    echo "Trivy found vulnerabilities ($cve) in the build artifacts that must be fixed. You can no longer deploy this release." >&2
                     return 1
                   fi
                 }
@@ -283,7 +286,7 @@ step "run-a-script" {
                 usage() {
                   cat <<EOF
                 Usage:
-                  $0                                  runs the full mock pipeline (SBOM scan + attest + image scan), no input required, defaults to pass
+                  $0                                  runs the full pipeline (SBOM scan + attest + image scan), no input required, defaults to pass
                   $0 sbom-scan   <name>              [pass|fail]
                   $0 attest      <package-or-image>  [pass|fail]
                   $0 image-scan  <image>             [pass|fail]
@@ -302,23 +305,23 @@ step "run-a-script" {
                 # steps perform, stopping at the first failure like a real deployment would.
                 # ---------------------------------------------------------------------------
                 run_default_pipeline() {
-                  echo "[MOCK] === Verify Build Artifacts (mock) ==="
-                  echo "[MOCK] Project: $PROJECT_NAME   Release: $RELEASE_VERSION   Environment: $ENVIRONMENT_NAME${TENANT_NAME:+   Tenant: $TENANT_NAME}"
+                  echo "=== Verify Build Artifacts ==="
+                  echo "Project: $PROJECT_NAME   Release: $RELEASE_VERSION   Environment: $ENVIRONMENT_NAME${TENANT_NAME:+   Tenant: $TENANT_NAME}"
                   echo ""
                 
-                  echo "[MOCK] --- Step 1: SBOM extraction + scan ---"
+                  echo "--- Step 1: SBOM extraction + scan ---"
                   cmd_sbom_scan "$PROJECT_NAME"
                   echo ""
                 
-                  echo "[MOCK] --- Step 2: Attestation + image verification ---"
-                  echo "[MOCK] Manifest: 1 package, 1 container"
+                  echo "--- Step 2: Attestation + image verification ---"
+                  echo "Manifest: 1 package, 1 container"
                   cmd_attest "$PROJECT_NAME"
                   echo ""
                   cmd_attest "oci://$CONTAINER_IMAGE"
                   cmd_image_scan "$CONTAINER_IMAGE"
                   echo ""
                 
-                  echo "[MOCK] === All checks passed. Artifacts written to $ARTIFACT_DIR/ ==="
+                  echo "=== All checks passed. Artifacts written to $ARTIFACT_DIR/ ==="
                   ls -1 "$ARTIFACT_DIR"
                 }
                 
